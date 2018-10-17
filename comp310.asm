@@ -185,7 +185,6 @@ NMI:
     CLC
     ADC #1
     STA $0200
-    
 
     ; Initialise controller 1
     LDA #1
@@ -208,6 +207,10 @@ ReadController:
     LDA joypad1_state
     AND #BUTTON_RIGHT
     BEQ ReadRight_Done  ; if ((JOYPAD1 & 1) != 0) {
+    LDA sprite_player + SPRITE_X
+    CLC
+    ADC #1
+    STA sprite_player + SPRITE_X
 
 ReadRight_Done:         ; }
 
@@ -222,6 +225,10 @@ ReadDown_Done:         ; }
     LDA joypad1_state
     AND #BUTTON_LEFT
     BEQ ReadLeft_Done  ; if ((JOYPAD1 & 1) != 0) {
+    LDA sprite_player + SPRITE_X
+    SEC
+    SBC #1
+    STA sprite_player + SPRITE_X
 
 ReadLeft_Done:         ; }
 
