@@ -180,12 +180,6 @@ InitialiseGame: ; Begin subroutine
 
 ; NMI is called on every frame
 NMI:
-    ; Apply gravity to player
-    LDA $0200
-    CLC
-    ADC #1
-    STA $0200
-
     ; Initialise controller 1
     LDA #1
     STA JOYPAD1
@@ -249,6 +243,54 @@ ReadA_Done:
     STA OAMADDR
     LDA #$02
     STA OAMDMA
+
+    ; Apply gravity to player
+    LDA $0200
+    CLC
+    ADC #1
+    STA $0200
+
+    ; CheckCollisionWithSpike .macro ; parameters: object_x, object_y, object_hit_x, object_hit_y, object_hit_w, object_hit_h, no_collision_label
+    ; ; If there is a collision, execution continues immediately after this macro
+    ; ; Else, jump to no_collision_label
+    ; LDA sprite_enemy+SPRITE_X, x  ; Calculate x_enemy - w_bullet - 1 (x1-w2-1)
+    ; .if \3 > 0
+    ; SEC
+    ; SBC \3
+    ; .endif
+    ; SEC
+    ; SBC \5+1
+    ; CMP \1                        ; Compare with x_bullet (x2)
+    ; BCS \7                        ; Branch if x1-w2-1-BULLET_HITBOX_X >= x2 i.e. x1-w2 > x2
+    ; CLC
+    ; ADC \5+1+ENEMY_HITBOX_WIDTH   ; Calculate x_enemy + w_enemy (x1+w1), assuming w1 = 8
+    ; CMP \1                        ; Compare with x_bullet (x2)
+    ; BCC \7                        ; Branching if x1+w1-BULLET_HITBOX_X < x2
+
+    ; LDA sprite_enemy+SPRITE_Y, x  ; Calculate y_enemy - h_bullet (y1-h2)
+    ; .if \3 > 0
+    ; SEC
+    ; SBC \4
+    ; .endif
+    ; SEC
+    ; SBC \6+1                
+    ; CMP \2                        ; Compare with y_bullet (y2)
+    ; BCS \7                        ; Branch if y1-h2 > y2
+    ; CLC
+    ; ADC \6+1+ENEMY_HITBOX_HEIGHT  ; Calculate y_enemy + h_enemy (y1+h1), assuming h1 = 8
+    ; CMP \2                        ; Compare with y_bullet (y2)
+    ; BCC \7                        ; Branching if y1+h1 < y2
+    ; .endm
+
+    ; ; Check collision with bullet
+    ; CheckCollisionWithSpike sprite_spike+SPRITE_X, sprite_spike+SPRITE_Y, #SPIKE_HITBOX_X, #SPIKE_HITBOX_Y, #SPIKE_HITBOX_WIDTH, #SPIKE_HITBOX_HEIGHT, UpdatePlayer_NoCollision
+    ; ; Handle collision
+    ; LDA #0                        ; Destroy the bullet and the enemy
+    ; STA bullet_active
+    ; STA enemy_info+ENEMY_ALIVE, x
+    ; LDA #$FF
+    ; STA sprite_bullet+SPRITE_Y
+    ; STA sprite_enemy+SPRITE_Y, x
 
     RTI         ; Return from interrupt
 
