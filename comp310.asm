@@ -8,12 +8,16 @@
 PPUCTRL   = $2000
 PPUMASK   = $2001
 PPUSTATUS = $2002
+
 OAMADDR   = $2003
 OAMDATA   = $2004
+
 PPUSCROLL = $2005
 PPUADDR   = $2006
 PPUDATA   = $2007
+
 OAMDMA    = $4014
+
 JOYPAD1   = $4016
 JOYPAD2   = $4017
 
@@ -28,18 +32,19 @@ BUTTON_RIGHT  = %00000001
 
 SPIKE_HITBOX_WIDTH   = 8
 SPIKE_HITBOX_HEIGHT  = 8
+NUM_SPIKES = 2
+
 PLAYER_HITBOX_WIDTH   = 8
 PLAYER_HITBOX_HEIGHT  = 8
 
     .rsset $0000
 joypad1_state      .rs 1
-temp_x             .rs 1
-temp_y             .rs 1
+nametable_address  .rs 2
 
     .rsset $0200
 sprite_player      .rs 4
-sprite_spike       .rs 4
 sprite_wall        .rs 4
+sprite_spike       .rs 4 * NUM_SPIKES
 
     .rsset $0000
 SPRITE_Y           .rs 1
@@ -114,11 +119,17 @@ vblankwait2:
 
     JSR InitialiseGame
 
-    LDA #%10000000 ; Enable NMI
+    LDA #%10010000 ;enable NMI, sprites from Pattern 0, background from Pattern 1
     STA PPUCTRL
 
-    LDA #%00010000 ; Enable sprites
+    LDA #%00011110 ; enable sprites, enable background
     STA PPUMASK
+
+    LDA #$00
+    STA PPUSCROLL
+    STA PPUSCROLL
+
+    LDA #0
 
     ; Enter an infinite loop
 forever:
@@ -130,55 +141,39 @@ InitialiseGame: ; Begin subroutine
     ; Reset the PPU high/low latch
     LDA PPUSTATUS
 
-    ; Write address $3F10 (background colour) to the PPU
+    ; Write address $3F00 (background palette) to the PPU
     LDA #$3F
     STA PPUADDR
-    LDA #$10
+    LDA #$00
     STA PPUADDR
 
-    ; Write the spike palette colours
-    LDA #$30        ; Background
-    STA PPUDATA
-    LDA #$17
-    STA PPUDATA
-    LDA #$10
-    STA PPUDATA
-    LDA #$0F
-    STA PPUDATA
+    LDX #$00                ; start out at 0
 
-    ; Write the player palette colours
-    LDA #$30        ; Background
-    STA PPUDATA
-    LDA #$06
-    STA PPUDATA
-    LDA #$16
-    STA PPUDATA
-    LDA #$0F
-    STA PPUDATA
+LoadPalettesLoop:
+    LDA paletteData, x      ; load data from address (paletteData + the value in x)
+                            ; 1st time through loop it will load paletteData+0
+                            ; 2nd time through loop it will load paletteData+1
+                            ; 3rd time through loop it will load paletteData+2
+                            ; etc
+    STA PPUDATA               ; write to PPU
+    INX                     ; X = X + 1
+    CPX #$20                ; Compare X to hex $20, decimal 32
+    BNE LoadPalettesLoop    ; Branch to LoadPalettesLoop if compare was Not Equal to zero
+                            ; if compare was equal to 32, keep going down
 
-    ; Write sprite data for sprite 0
+; Write sprite data for player
+InitPlayer:
     LDA #120    ; Y position
     STA sprite_player + SPRITE_Y
     LDA #0      ; Tile number
     STA sprite_player + SPRITE_TILE
-    LDA #1      ; Attributes
+    LDA #0      ; Attributes
     STA sprite_player + SPRITE_ATTRIB
     LDA #128    ; X position
     STA sprite_player + SPRITE_X
-    LDX #0
 
-    ; Write sprite data for sprite 1
-    LDA #120     ; Y position
-    STA sprite_spike + SPRITE_Y
-    LDA #1      ; Tile number
-    STA sprite_spike + SPRITE_TILE
-    LDA #0      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB
-    LDA #140    ; X position
-    STA sprite_spike + SPRITE_X
-    LDX #0
-
-    ; Write sprite data for walls
+; Write sprite data for walls
+InitWalls:
     LDA #220    ; Y position
     STA sprite_wall + SPRITE_Y
     LDA #2      ; Tile number
@@ -188,7 +183,64 @@ InitialiseGame: ; Begin subroutine
     LDA #10    ; X position
     STA sprite_wall + SPRITE_X
     
+; Write sprite data for spikes
+InitSpikes:
     LDX #0
+    InitSpikesLoop:
+    LDA #120     ; Y position
+    STA sprite_spike + SPRITE_Y, X
+    LDA #1      ; Tile number
+    STA sprite_spike + SPRITE_TILE, X
+    LDA #0      ; Attributes
+    STA sprite_spike + SPRITE_ATTRIB, X
+    LDA #140 + NUM_SPIKES * 4     ; X position
+    STA sprite_spike + SPRITE_X, X
+    ; Increment X register by 4
+    TXA
+    CLC
+    ADC #4
+    TAX
+    ; See if 
+    CPX NUM_SPIKES * 4     ; Compare X to dec 8
+    BNE InitSpikesLoop
+
+; ---------------------------------------------------------------------------
+
+LoadBackground:
+    LDA #$20
+    STA PPUADDR                 ; write the high byte of $2000 address
+    LDA #$00
+    STA PPUADDR                 ; write the low byte of $2000 address
+
+    LDA #LOW(nametable)
+    STA nametable_address
+    LDA #HIGH(nametable)
+    STA nametable_address + 1
+LoadBackground_OuterLoop:
+    LDY #0                         ; start out at 0
+LoadBackground_InnerLoop:
+    LDA [nametable_address], Y                ; load data from address (background + the value in x)
+    BEQ LoadBackground_End          ; break out
+    STA PPUDATA                     ; write to PPU
+    INY                             ; X = X + 1
+    BNE LoadBackground_InnerLoop    ; Branch to LoadBackgroundLoop if compare was Not Equal to zero
+    INC nametable_address + 1
+    JMP LoadBackground_OuterLoop
+LoadBackground_End
+
+; LoadAttribute:
+;     LDA $2002             ; read PPU status to reset the high/low latch
+;     LDA #$23
+;     STA $2006             ; write the high byte of $23C0 address
+;     LDA #$C0
+;     STA $2006             ; write the low byte of $23C0 address
+;     LDX #$00              ; start out at 0          
+; LoadAttributeLoop:
+;     LDA attribute, x      ; load data from address (attribute + the value in x)
+;     STA PPUDATA             ; write to PPU
+;     INX                   ; X = X + 1
+;     CPX #$08              ; Compare X to hex $08, decimal 8 - copying 8 bytes
+;     BNE LoadAttributeLoop
 
     RTS ; End subroutine
 
@@ -276,44 +328,14 @@ ReadA_Done:
     ; ADC #1
     ; STA $0200
 
-; CheckForCollision .macro ;parameters: object_x, object_y, no_collision_label
-;     ; If there is no overlap horizontally or vertially jump out
-;     ; Else quit
-
-;     ; horizontal checks
-;     LDA sprite_spike + SPRITE_X   ; load sx
-;     ; sx > px + pw
-;     CLC
-;     SEC
-;     CMP \1 + 8                    ; Compare with player x + player width
-;     BCS \3                        ; No collision if spike x >= player x + player width
-;     ; CLC
-;     ; ; is sx + sw < px
-;     ; ADC \1+1+SPIKE_HITBOX_WIDTH   ; sx + sw
-;     ; CMP \1                        ; px
-;     ; BCC \3
-
-;     ; ; vertical checks
-;     ; LDA sprite_spike+SPRITE_Y, x
-;     ; ; is sy + sh < py
-;     ; SEC
-;     ; SBC \1+1                
-;     ; CMP \2                        ; Compare with y_player (y2)
-;     ; BCS \3                        ; Branch if y1-h2 > y2
-;     ; CLC                           ; Branching if y1+h1 < y2
-;     ; ; is sy > py + ph
-;     ; ADC \1+1+SPIKE_HITBOX_HEIGHT  ; Calculate y_spike + h_spike (y1+h1), assuming h1 = 8
-;     ; CMP \2                        ; Compare with y_bullet (y2)
-;     ; BCC \3
-;     .endm
-    
-;     ; Check collision with player
-;     CheckForCollision sprite_player+SPRITE_X, sprite_player+SPRITE_Y, noCollisionWithSpike
-    
     LDX #0
 
+CheckForCollision .macro ;parameters: object_x, object_y, no_collision_label
+    ; If there is no overlap horizontally or vertially jump out
+    ; Else quit
+
     ; Horizontal check
-    LDA sprite_spike + SPRITE_X, x
+    LDA sprite_spike + SPRITE_X
     SEC
     SBC #8
     CMP sprite_player + SPRITE_X
@@ -323,7 +345,7 @@ ReadA_Done:
     CMP sprite_player + SPRITE_X
     BCC noCollisionWithSpike  ; <
     ; Vertical check
-    LDA sprite_spike + SPRITE_Y, x
+    LDA sprite_spike + SPRITE_Y
     SEC
     SBC #8
     CMP sprite_player + SPRITE_Y
@@ -332,12 +354,68 @@ ReadA_Done:
     ADC #16
     CMP sprite_player + SPRITE_Y
     BCC noCollisionWithSpike  ; <
+    .endm
+
+    ; Check collision with player
+    CheckForCollision sprite_player+SPRITE_X, sprite_player+SPRITE_Y, noCollisionWithSpike
+    
     ; Handle collision
     JSR InitialiseGame
 
 noCollisionWithSpike:
 
     RTI         ; Return from interrupt
+
+; ---------------------------------------------------------------------------
+sprites:
+    ;vert tile attr horiz
+    .db $80, $32, $00, $80   ;sprite 0
+    .db $80, $33, $00, $88   ;sprite 1
+    .db $88, $34, $00, $80   ;sprite 2
+    .db $88, $35, $00, $88   ;sprite 3
+
+nametable:
+    .db $02,$02,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .db $00 ; NULL terminator
+
+; attribute:
+;     .db %00000000, %00010000, %0010000, %00010000, %00000000, %00000000, %00000000, %00110000
+
+paletteData:
+    .db $1C,$05,$0D,$39,$0F,$33,$0F,$33,$1C,$0F,$33,$33,$1C,$0F,$33,$30  ; Background palette data
+    .db $1C,$05,$0D,$39,$1C,$05,$0D,$39,$1C,$05,$0D,$39,$1C,$05,$0D,$39  ; Sprite palette data
 
 ; ---------------------------------------------------------------------------
 
