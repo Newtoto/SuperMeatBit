@@ -28,6 +28,8 @@ BUTTON_RIGHT  = %00000001
 
 SPIKE_HITBOX_WIDTH   = 8
 SPIKE_HITBOX_HEIGHT  = 8
+PLAYER_HITBOX_WIDTH   = 8
+PLAYER_HITBOX_HEIGHT  = 8
 
     .rsset $0000
 joypad1_state      .rs 1
@@ -37,6 +39,7 @@ temp_y             .rs 1
     .rsset $0200
 sprite_player      .rs 4
 sprite_spike       .rs 4
+sprite_wall        .rs 4
 
     .rsset $0000
 SPRITE_Y           .rs 1
@@ -162,16 +165,29 @@ InitialiseGame: ; Begin subroutine
     STA sprite_player + SPRITE_ATTRIB
     LDA #128    ; X position
     STA sprite_player + SPRITE_X
+    LDX #0
 
     ; Write sprite data for sprite 1
-    LDA #10     ; Y position
+    LDA #120     ; Y position
     STA sprite_spike + SPRITE_Y
     LDA #1      ; Tile number
     STA sprite_spike + SPRITE_TILE
     LDA #0      ; Attributes
     STA sprite_spike + SPRITE_ATTRIB
-    LDA #10    ; X position
+    LDA #140    ; X position
     STA sprite_spike + SPRITE_X
+    LDX #0
+
+    ; Write sprite data for walls
+    LDA #220    ; Y position
+    STA sprite_wall + SPRITE_Y
+    LDA #2      ; Tile number
+    STA sprite_wall + SPRITE_TILE
+    LDA #1      ; Attributes
+    STA sprite_wall + SPRITE_ATTRIB
+    LDA #10    ; X position
+    STA sprite_wall + SPRITE_X
+    
     LDX #0
 
     RTS ; End subroutine
@@ -212,6 +228,10 @@ ReadRight_Done:         ; }
     LDA joypad1_state
     AND #BUTTON_DOWN
     BEQ ReadDown_Done  ; if ((JOYPAD1 & 1) != 0) {
+    LDA sprite_player + SPRITE_Y
+    CLC
+    ADC #1
+    STA sprite_player + SPRITE_Y
 
 ReadDown_Done:         ; }
 
@@ -220,6 +240,7 @@ ReadDown_Done:         ; }
     AND #BUTTON_LEFT
     BEQ ReadLeft_Done  ; if ((JOYPAD1 & 1) != 0) {
     LDA sprite_player + SPRITE_X
+    CLC
     SEC
     SBC #1
     STA sprite_player + SPRITE_X
@@ -230,6 +251,11 @@ ReadLeft_Done:         ; }
     LDA joypad1_state
     AND #BUTTON_UP
     BEQ ReadUp_Done  ; if ((JOYPAD1 & 1) != 0) {
+    LDA sprite_player + SPRITE_Y
+    CLC
+    SEC
+    SBC #1
+    STA sprite_player + SPRITE_Y
 
 ReadUp_Done:         ; }
 
@@ -244,53 +270,72 @@ ReadA_Done:
     LDA #$02
     STA OAMDMA
 
-    ; Apply gravity to player
-    LDA $0200
+    ; ; Apply gravity to player
+    ; LDA $0200
+    ; CLC
+    ; ADC #1
+    ; STA $0200
+
+; CheckForCollision .macro ;parameters: object_x, object_y, no_collision_label
+;     ; If there is no overlap horizontally or vertially jump out
+;     ; Else quit
+
+;     ; horizontal checks
+;     LDA sprite_spike + SPRITE_X   ; load sx
+;     ; sx > px + pw
+;     CLC
+;     SEC
+;     CMP \1 + 8                    ; Compare with player x + player width
+;     BCS \3                        ; No collision if spike x >= player x + player width
+;     ; CLC
+;     ; ; is sx + sw < px
+;     ; ADC \1+1+SPIKE_HITBOX_WIDTH   ; sx + sw
+;     ; CMP \1                        ; px
+;     ; BCC \3
+
+;     ; ; vertical checks
+;     ; LDA sprite_spike+SPRITE_Y, x
+;     ; ; is sy + sh < py
+;     ; SEC
+;     ; SBC \1+1                
+;     ; CMP \2                        ; Compare with y_player (y2)
+;     ; BCS \3                        ; Branch if y1-h2 > y2
+;     ; CLC                           ; Branching if y1+h1 < y2
+;     ; ; is sy > py + ph
+;     ; ADC \1+1+SPIKE_HITBOX_HEIGHT  ; Calculate y_spike + h_spike (y1+h1), assuming h1 = 8
+;     ; CMP \2                        ; Compare with y_bullet (y2)
+;     ; BCC \3
+;     .endm
+    
+;     ; Check collision with player
+;     CheckForCollision sprite_player+SPRITE_X, sprite_player+SPRITE_Y, noCollisionWithSpike
+    
+    LDX #0
+
+    ; Horizontal check
+    LDA sprite_spike + SPRITE_X, x
+    SEC
+    SBC #8
+    CMP sprite_player + SPRITE_X
+    BCS noCollisionWithSpike  ; >
     CLC
-    ADC #1
-    STA $0200
+    ADC #16
+    CMP sprite_player + SPRITE_X
+    BCC noCollisionWithSpike  ; <
+    ; Vertical check
+    LDA sprite_spike + SPRITE_Y, x
+    SEC
+    SBC #8
+    CMP sprite_player + SPRITE_Y
+    BCS noCollisionWithSpike  ; >
+    CLC
+    ADC #16
+    CMP sprite_player + SPRITE_Y
+    BCC noCollisionWithSpike  ; <
+    ; Handle collision
+    JSR InitialiseGame
 
-    ; CheckCollisionWithSpike .macro ; parameters: object_x, object_y, object_hit_x, object_hit_y, object_hit_w, object_hit_h, no_collision_label
-    ; ; If there is a collision, execution continues immediately after this macro
-    ; ; Else, jump to no_collision_label
-    ; LDA sprite_enemy+SPRITE_X, x  ; Calculate x_enemy - w_bullet - 1 (x1-w2-1)
-    ; .if \3 > 0
-    ; SEC
-    ; SBC \3
-    ; .endif
-    ; SEC
-    ; SBC \5+1
-    ; CMP \1                        ; Compare with x_bullet (x2)
-    ; BCS \7                        ; Branch if x1-w2-1-BULLET_HITBOX_X >= x2 i.e. x1-w2 > x2
-    ; CLC
-    ; ADC \5+1+ENEMY_HITBOX_WIDTH   ; Calculate x_enemy + w_enemy (x1+w1), assuming w1 = 8
-    ; CMP \1                        ; Compare with x_bullet (x2)
-    ; BCC \7                        ; Branching if x1+w1-BULLET_HITBOX_X < x2
-
-    ; LDA sprite_enemy+SPRITE_Y, x  ; Calculate y_enemy - h_bullet (y1-h2)
-    ; .if \3 > 0
-    ; SEC
-    ; SBC \4
-    ; .endif
-    ; SEC
-    ; SBC \6+1                
-    ; CMP \2                        ; Compare with y_bullet (y2)
-    ; BCS \7                        ; Branch if y1-h2 > y2
-    ; CLC
-    ; ADC \6+1+ENEMY_HITBOX_HEIGHT  ; Calculate y_enemy + h_enemy (y1+h1), assuming h1 = 8
-    ; CMP \2                        ; Compare with y_bullet (y2)
-    ; BCC \7                        ; Branching if y1+h1 < y2
-    ; .endm
-
-    ; ; Check collision with bullet
-    ; CheckCollisionWithSpike sprite_spike+SPRITE_X, sprite_spike+SPRITE_Y, #SPIKE_HITBOX_X, #SPIKE_HITBOX_Y, #SPIKE_HITBOX_WIDTH, #SPIKE_HITBOX_HEIGHT, UpdatePlayer_NoCollision
-    ; ; Handle collision
-    ; LDA #0                        ; Destroy the bullet and the enemy
-    ; STA bullet_active
-    ; STA enemy_info+ENEMY_ALIVE, x
-    ; LDA #$FF
-    ; STA sprite_bullet+SPRITE_Y
-    ; STA sprite_enemy+SPRITE_Y, x
+noCollisionWithSpike:
 
     RTI         ; Return from interrupt
 
