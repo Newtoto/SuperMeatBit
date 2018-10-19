@@ -235,9 +235,9 @@ LoadBackground:
     LDA #HIGH(nametable)
     STA nametable_address + 1
 LoadBackground_OuterLoop:
-    LDY #0                         ; start out at 0
+    LDY #0                          ;start out at 0
 LoadBackground_InnerLoop:
-    LDA [nametable_address], Y                ; load data from address (background + the value in x)
+    LDA [nametable_address], Y      ; load data from address (background + the value in y)
     BEQ LoadBackground_End          ; break out
     STA PPUDATA                     ; write to PPU
     INY                             ; X = X + 1
