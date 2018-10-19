@@ -372,13 +372,14 @@ CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_lab
     ADC #16
     CMP \2
     BCC \3	; <
-	JMP gravityDone
+	JMP \4
     .endm
 
     ; Check collision with spikes
-    CheckForPlayerCollision sprite_spike + SPRITE_X, sprite_spike + SPRITE_Y, noCollisionWithSpike
+    CheckForPlayerCollision sprite_spike + SPRITE_X, sprite_spike + SPRITE_Y, noCollisionWithSpike, spikeHit
 	; Handle collision
-    JSR InitialiseGame
+spikeHit:
+	JSR InitialiseGame
 	
 noCollisionWithSpike:
 
@@ -454,7 +455,7 @@ nametable:
 ;     .db %00000000, %00010000, %0010000, %00010000, %00000000, %00000000, %00000000, %00110000
 
 paletteData:
-    .db $1C,$05,$0D,$39,$0F,$33,$0F,$33,$1C,$0F,$33,$33,$1C,$0F,$33,$30  ; Background palette data
+    .db $0F,$17,$28,$39,$0F,$33,$0F,$33,$1C,$0F,$33,$33,$1C,$0F,$33,$30  ; Background palette data
     .db $1C,$05,$0D,$39,$1C,$05,$0D,$39,$1C,$05,$0D,$39,$1C,$05,$0D,$39  ; Sprite palette data
 
 ; ---------------------------------------------------------------------------
