@@ -43,8 +43,8 @@ nametable_address  .rs 2
 
     .rsset $0200
 sprite_player      .rs 4
-sprite_wall        .rs 4
-sprite_spike       .rs 4 * NUM_SPIKES
+sprite_wall        .rs 16
+sprite_spike       .rs 4
 
     .rsset $0000
 SPRITE_Y           .rs 1
@@ -174,14 +174,32 @@ InitPlayer:
 
 ; Write sprite data for walls
 InitWalls:
-    LDA #220    ; Y position
+    LDA #140    ; Y position
     STA sprite_wall + SPRITE_Y
     LDA #2      ; Tile number
     STA sprite_wall + SPRITE_TILE
     LDA #1      ; Attributes
     STA sprite_wall + SPRITE_ATTRIB
-    LDA #10    ; X position
+    LDA #128    ; X position
     STA sprite_wall + SPRITE_X
+	
+	LDA #140    ; Y position
+    STA sprite_wall + SPRITE_Y + 4
+    LDA #2      ; Tile number
+    STA sprite_wall + SPRITE_TILE + 4
+    LDA #1      ; Attributes
+    STA sprite_wall + SPRITE_ATTRIB + 4
+    LDA #136    ; X position
+    STA sprite_wall + SPRITE_X + 4
+	
+	LDA #140    ; Y position
+    STA sprite_wall + SPRITE_Y + 8
+    LDA #2      ; Tile number
+    STA sprite_wall + SPRITE_TILE + 8
+    LDA #1      ; Attributes
+    STA sprite_wall + SPRITE_ATTRIB + 8
+    LDA #120    ; X position
+    STA sprite_wall + SPRITE_X + 8
     
 ; Write sprite data for spikes
 InitSpikes:
@@ -330,41 +348,63 @@ ReadA_Done:
 
     LDX #0
 
-CheckForCollision .macro ;parameters: object_x, object_y, no_collision_label
+CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_label
     ; If there is no overlap horizontally or vertially jump out
     ; Else quit
 
     ; Horizontal check
-    LDA sprite_spike + SPRITE_X
+    LDA sprite_player + SPRITE_X
     SEC
     SBC #8
-    CMP sprite_player + SPRITE_X
-    BCS noCollisionWithSpike  ; >
+    CMP \1
+    BCS \3  ; >
     CLC
     ADC #16
-    CMP sprite_player + SPRITE_X
-    BCC noCollisionWithSpike  ; <
+    CMP \1
+    BCC \3  ; <
     ; Vertical check
-    LDA sprite_spike + SPRITE_Y
+    LDA sprite_player + SPRITE_Y
     SEC
     SBC #8
-    CMP sprite_player + SPRITE_Y
-    BCS noCollisionWithSpike  ; >
+    CMP \2
+    BCS \3  ; >
     CLC
     ADC #16
-    CMP sprite_player + SPRITE_Y
-    BCC noCollisionWithSpike  ; <
+    CMP \2
+    BCC \3	; <
+	JMP gravityDone
     .endm
 
-    ; Check collision with player
-    CheckForCollision sprite_player+SPRITE_X, sprite_player+SPRITE_Y, noCollisionWithSpike
-    
-    ; Handle collision
+    ; Check collision with spikes
+    CheckForPlayerCollision sprite_spike + SPRITE_X, sprite_spike + SPRITE_Y, noCollisionWithSpike
+	; Handle collision
     JSR InitialiseGame
-
+	
 noCollisionWithSpike:
 
-    RTI         ; Return from interrupt
+	CheckForPlayerCollision sprite_wall + SPRITE_X, sprite_wall + SPRITE_Y, checkWall2, gravityDone	; TODO Separate function to slow falling if to the side
+checkWall2:
+	CheckForPlayerCollision sprite_wall + SPRITE_X + 4, sprite_wall + SPRITE_Y + 4, checkWall3, gravityDone
+checkWall3:
+	CheckForPlayerCollision sprite_wall + SPRITE_X + 8, sprite_wall + SPRITE_Y + 8, applyGravity, gravityDone
+	JMP gravityDone
+	
+applyGravity:
+	LDA sprite_player + SPRITE_Y
+    CLC
+    ADC #1
+    STA sprite_player + SPRITE_Y
+	
+slowGravity:
+	LDA sprite_player + SPRITE_Y
+    CLC
+    ADC #1
+    STA sprite_player + SPRITE_Y
+	
+gravityDone:
+	
+	
+	RTI         ; Return from interrupt
 
 ; ---------------------------------------------------------------------------
 sprites:
