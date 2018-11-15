@@ -33,6 +33,7 @@ BUTTON_RIGHT  = %00000001
 SPIKE_HITBOX_WIDTH   = 8
 SPIKE_HITBOX_HEIGHT  = 8
 NUM_SPIKES = 2
+NUM_COLLECTABLES = 1
 
 PLAYER_HITBOX_WIDTH   = 8
 PLAYER_HITBOX_HEIGHT  = 8
@@ -47,6 +48,7 @@ nametable_address  .rs 2
 sprite_player      .rs 4
 sprite_wall        .rs 16
 sprite_spike       .rs 4
+sprite_collectable .rs 4
 
     .rsset $0000
 SPRITE_Y           .rs 1
@@ -189,7 +191,7 @@ InitWalls:
     STA sprite_wall + SPRITE_Y + 4
     LDA #2      ; Tile number
     STA sprite_wall + SPRITE_TILE + 4
-    LDA #1      ; Attributes
+    LDA #2      ; Attributes
     STA sprite_wall + SPRITE_ATTRIB + 4
     LDA #136    ; X position
     STA sprite_wall + SPRITE_X + 4
@@ -198,7 +200,7 @@ InitWalls:
     STA sprite_wall + SPRITE_Y + 8
     LDA #2      ; Tile number
     STA sprite_wall + SPRITE_TILE + 8
-    LDA #1      ; Attributes
+    LDA #3      ; Attributes
     STA sprite_wall + SPRITE_ATTRIB + 8
     LDA #120    ; X position
     STA sprite_wall + SPRITE_X + 8
@@ -223,6 +225,26 @@ InitSpikes:
     ; See if 
     CPX NUM_SPIKES * 4     ; Compare X to dec 8
     BNE InitSpikesLoop
+
+InitCollectables:
+    LDX #0
+    InitCollectablesLoop:
+    LDA #180     ; Y position
+    STA sprite_collectable + SPRITE_Y, X
+    LDA #3      ; Tile number
+    STA sprite_collectable + SPRITE_TILE, X
+    LDA #1      ; Attributes
+    STA sprite_collectable + SPRITE_ATTRIB, X
+    LDA #140 + NUM_COLLECTABLES * 4     ; X position
+    STA sprite_collectable + SPRITE_X, X
+    ; Increment X register by 4
+    TXA
+    CLC
+    ADC #4
+    TAX
+    ; See if 
+    CPX NUM_COLLECTABLES * 4     ; Compare X to dec 8
+    BNE InitCollectablesLoop
 
 ; ---------------------------------------------------------------------------
 
@@ -471,8 +493,8 @@ attribute:
     .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000  ; Row 15
 
 paletteData:
-    .db $0F,$17,$28,$39,$0F,$33,$0F,$33,$1C,$0F,$33,$33,$1C,$0F,$33,$30  ; Background palette data
-    .db $1C,$05,$0D,$39,$1C,$05,$0D,$39,$1C,$05,$0D,$39,$1C,$05,$0D,$39  ; Sprite palette data
+    .db $00,$10,$20,$30,$0F,$33,$0F,$33,$1C,$0F,$33,$33,$1C,$0F,$33,$30  ; Background palette data
+    .db $1C,$05,$0D,$39,$1C,$26,$15,$36,$08,$09,$10,$11,$1C,$05,$0D,$39  ; Sprite palette data
 
 ; ---------------------------------------------------------------------------
 
