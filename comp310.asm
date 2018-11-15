@@ -33,7 +33,7 @@ BUTTON_RIGHT  = %00000001
 SPIKE_HITBOX_WIDTH   = 8
 SPIKE_HITBOX_HEIGHT  = 8
 NUM_SPIKES = 2
-NUM_COLLECTABLES = 1
+NUM_BANDAGES = 1
 
 PLAYER_HITBOX_WIDTH   = 8
 PLAYER_HITBOX_HEIGHT  = 8
@@ -41,20 +41,34 @@ PLAYER_START_POSITION_X = 128
 PLAYER_START_POSITION_Y = 120
 
     .rsset $0000
-joypad1_state      .rs 1
-nametable_address  .rs 2
+joypad1_state           .rs 1
+nametable_address       .rs 2
+player_speed            .rs 2 ; Subixels per frame -- 16 bits
+player_position_sub_y   .rs 1
+player_position_sub_x   .rs 1
+player_right_speed      .rs 2 ; Subixels per frame -- 16 bits
+player_left_speed       .rs 2 ; Subixels per frame -- 16 bits
+left_momentum           .rs 2 ; Subixels per frame ^ 2 -- 16 bits
+right_momentum          .rs 2 ; Subixels per frame ^ 2 -- 16 bits
+is_running              .rs 1 ; Checks if player is running
 
     .rsset $0200
 sprite_player      .rs 4
 sprite_wall        .rs 16
 sprite_spike       .rs 4
-sprite_collectable .rs 4
+sprite_bandage     .rs 4
 
     .rsset $0000
 SPRITE_Y           .rs 1
 SPRITE_TILE        .rs 1
 SPRITE_ATTRIB      .rs 1
 SPRITE_X           .rs 1
+
+GRAVITY             = 16        ; Subpixels per frame ^ 2
+JUMP_SPEED          = -3 * 256  ; Subpixels per frame
+RUN_SPEED           = 2* 256    ; Subpixels per frame
+RUN_ACC             = 8
+MAX_SPEED           = 16
 
     .bank 0
     .org $C000
@@ -230,20 +244,20 @@ InitCollectables:
     LDX #0
     InitCollectablesLoop:
     LDA #180     ; Y position
-    STA sprite_collectable + SPRITE_Y, X
+    STA sprite_bandage + SPRITE_Y, X
     LDA #3      ; Tile number
-    STA sprite_collectable + SPRITE_TILE, X
+    STA sprite_bandage + SPRITE_TILE, X
     LDA #1      ; Attributes
-    STA sprite_collectable + SPRITE_ATTRIB, X
-    LDA #140 + NUM_COLLECTABLES * 4     ; X position
-    STA sprite_collectable + SPRITE_X, X
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    LDA #140 + NUM_BANDAGES * 4     ; X position
+    STA sprite_bandage + SPRITE_X, X
     ; Increment X register by 4
     TXA
     CLC
     ADC #4
     TAX
     ; See if 
-    CPX NUM_COLLECTABLES * 4     ; Compare X to dec 8
+    CPX NUM_BANDAGES * 4     ; Compare X to dec 8
     BNE InitCollectablesLoop
 
 ; ---------------------------------------------------------------------------
@@ -310,14 +324,17 @@ ReadController:
     CPX #8
     BNE ReadController
 
+    LDA #0
+    STA is_running      ; Default is running to false
+
     ; React to Right button
     LDA joypad1_state
     AND #BUTTON_RIGHT
-    BEQ ReadRight_Done  ; if ((JOYPAD1 & 1) != 0) {
-    LDA sprite_player + SPRITE_X
-    CLC
-    ADC #1
-    STA sprite_player + SPRITE_X
+    BEQ ReadRight_Done       ; if ((JOYPAD1 & 1) != 0) {
+    LDA #1 
+    STA is_running           ; Set is running bool to true
+    LDA #RUN_ACC
+    STA right_momentum         ; Start momentum
 
 ReadRight_Done:         ; }
 
@@ -329,6 +346,7 @@ ReadRight_Done:         ; }
     CLC
     ADC #1
     STA sprite_player + SPRITE_Y
+    
 
 ReadDown_Done:         ; }
 
@@ -336,11 +354,11 @@ ReadDown_Done:         ; }
     LDA joypad1_state
     AND #BUTTON_LEFT
     BEQ ReadLeft_Done  ; if ((JOYPAD1 & 1) != 0) {
-    LDA sprite_player + SPRITE_X
-    CLC
-    SEC
-    SBC #1
-    STA sprite_player + SPRITE_X
+    LDA #1
+    STA is_running      ; Set is running bool to true
+    LDA #RUN_ACC
+    STA left_momentum    ; Start momentum
+
 
 ReadLeft_Done:         ; }
 
@@ -360,6 +378,11 @@ ReadUp_Done:         ; }
     LDA joypad1_state
     AND #BUTTON_A
     BEQ ReadA_Done
+    ; Jump, set player speed
+    LDA #LOW(JUMP_SPEED)
+    STA player_speed
+    LDA #HIGH(JUMP_SPEED)
+    STA player_speed + 1
 
 ReadA_Done:
     LDA #0
@@ -374,6 +397,12 @@ ReadA_Done:
     ; STA $0200
 
     LDX #0
+
+CheckForRunning:
+    LDA is_running
+    BNE CheckSpikeCollision     ; Branch if running
+    STA right_momentum            ; Stop momentum if not running
+    STA left_momentum
 
 CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_label
     ; If there is no overlap horizontally or vertially jump out
@@ -405,40 +434,115 @@ CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_lab
 	JMP \4
     .endm
 
-    ; Check collision with spikes
-    CheckForPlayerCollision sprite_spike + SPRITE_X, sprite_spike + SPRITE_Y, noCollisionWithSpike, spikeHit
-	; Handle collision
-spikeHit:
+CheckSpikeCollision:
+; Check collision with spikes
+    CheckForPlayerCollision sprite_spike + SPRITE_X, sprite_spike + SPRITE_Y, NoCollisionWithSpike, SpikeHit
+
+; Handle collision
+SpikeHit:
     ; Move player back to start
     LDA #PLAYER_START_POSITION_Y    ; Y position
     STA sprite_player + SPRITE_Y
     LDA #PLAYER_START_POSITION_X    ; X position
     STA sprite_player + SPRITE_X
+    LDA #0                          ; Stop player run speed
+    STA player_right_speed
+    STA player_right_speed + 1
+    STA player_left_speed
+    STA player_left_speed + 1
 	
-noCollisionWithSpike:
+NoCollisionWithSpike:
 
-	CheckForPlayerCollision sprite_wall + SPRITE_X, sprite_wall + SPRITE_Y, checkWall2, gravityDone	; TODO Separate function to slow falling if to the side
-checkWall2:
-	CheckForPlayerCollision sprite_wall + SPRITE_X + 4, sprite_wall + SPRITE_Y + 4, checkWall3, gravityDone
-checkWall3:
-	CheckForPlayerCollision sprite_wall + SPRITE_X + 8, sprite_wall + SPRITE_Y + 8, applyGravity, gravityDone
-	JMP gravityDone
+    CheckForPlayerCollision sprite_bandage + SPRITE_X, sprite_bandage + SPRITE_Y, NoCollisionWithBandage, BandageHit
+
+BandageHit:
+    ; Delete bandage + add to score?
+    CLC
+    ADC #50
+    STA sprite_bandage
+
+NoCollisionWithBandage:
+
+	CheckForPlayerCollision sprite_wall + SPRITE_X, sprite_wall + SPRITE_Y, CheckWall2, StopPlayerFall	; TODO Separate function to slow falling if to the side
+CheckWall2:
+	CheckForPlayerCollision sprite_wall + SPRITE_X + 4, sprite_wall + SPRITE_Y + 4, CheckWall3, StopPlayerFall
+CheckWall3:
+	CheckForPlayerCollision sprite_wall + SPRITE_X + 8, sprite_wall + SPRITE_Y + 8, CalculateFall, StopPlayerFall
+
+StopPlayerFall:
+    LDA #0
+    STA player_speed     ; Low 8 btis
+    STA player_speed + 1 ; High 8 bits
+    JMP CalculateMomentum
+
+CalculateFall:
+    ; Check if speed is greater than max speed
+    LDA MAX_SPEED
+    CMP player_speed
+    BCS ApplyGravity
+
+    ; Increment player speed
+    LDA player_speed    ; Low 8 bits
+    CLC
+    ADC #LOW(GRAVITY)
+    STA player_speed
+    LDA player_speed + 1 ; High 8 bits
+    ADC #HIGH(GRAVITY)   ; Don't clear carry flag
+    STA player_speed + 1
+ApplyGravity:
+    ; Apply fall to player
+	LDA player_position_sub_y       ; Low 8 bits
+    CLC
+    ADC player_speed
+    STA player_position_sub_y
+    LDA sprite_player + SPRITE_Y  ; High 8 bits
+    ADC player_speed + 1          ; Don't clear carry flag
+    STA sprite_player + SPRITE_Y
 	
-applyGravity:
+SlowGravity:
 	LDA sprite_player + SPRITE_Y
     CLC
     ADC #1
     STA sprite_player + SPRITE_Y
-	
-slowGravity:
-	LDA sprite_player + SPRITE_Y
+
+AddMomentum .macro ; parameters: maxSpeed, speed, acceleration, endFunction
+    ; Check if speed is greater than max speed
+    ;LDA \1
+    ;CMP \2
+    ;BCC \4  ; Branch if max speed is exceeded
+
+    ; Calculate player speed
+    LDA \2    ; Low 8 bits
     CLC
-    ADC #1
-    STA sprite_player + SPRITE_Y
-	
-gravityDone:
-	
-	
+    ADC \3
+    STA \2
+    LDA \2 + 1 ; High 8 bits
+    ADC \3 + 1   ; Don't clear carry flag
+    STA \2 + 1
+    .endm
+
+CalculateMomentum:
+    AddMomentum MAX_SPEED, player_right_speed, right_momentum, ApplyDrag     ; Right momentum
+    ; Apply right momentum to player
+    LDA player_position_sub_x     ; Low 8 bits
+    CLC
+    ADC player_right_speed
+    STA player_position_sub_x
+    LDA sprite_player + SPRITE_X  ; High 8 bits
+    ADC player_right_speed + 1      ; Don't clear carry flag
+    STA sprite_player + SPRITE_X
+    AddMomentum MAX_SPEED, player_left_speed, left_momentum, ApplyDrag     ; Left momentum
+    ; Apply left momentum to player
+    LDA player_position_sub_x     ; Low 8 bits
+    CLC
+    SBC player_left_speed
+    STA player_position_sub_x
+    LDA sprite_player + SPRITE_X  ; High 8 bits
+    SBC player_left_speed + 1      ; Don't clear carry flag
+    STA sprite_player + SPRITE_X
+
+ApplyDrag:
+
 	RTI         ; Return from interrupt
 
 ; ---------------------------------------------------------------------------
