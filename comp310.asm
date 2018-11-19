@@ -52,6 +52,9 @@ left_momentum           .rs 2 ; Subixels per frame ^ 2 -- 16 bits
 right_momentum          .rs 2 ; Subixels per frame ^ 2 -- 16 bits
 is_running              .rs 1 ; Checks if player is running
 touching_ground         .rs 1 ; Ground check
+wall_jump_right         .rs 1 ; For wall jumping right
+wall_jump_left          .rs 1 ; For wall jumping left
+collision_location      .rs 1 ; Low stores x, high stores y
 
     .rsset $0200
 sprite_player      .rs 4
@@ -67,9 +70,10 @@ SPRITE_X           .rs 1
 
 GRAVITY             = 16        ; Subpixels per frame ^ 2
 JUMP_SPEED          = -2 * 256  ; Subpixels per frame
-RUN_SPEED           = 2* 256    ; Subpixels per frame
+RUN_SPEED           = 4 * 256    ; Subpixels per frame
 RUN_ACC             = 8
 MAX_SPEED           = 16
+WALL_JUMP_SPEED     = 1 * 256    ; Subpixels per frame
 
     .bank 0
     .org $C000
@@ -192,17 +196,26 @@ InitPlayer:
     STA sprite_player + SPRITE_X
 
 ; Write sprite data for walls
-InitWalls:
-    LDA #140    ; Y position
+InitWalls: 
+	LDA #200    ; Y position
+    STA sprite_wall + SPRITE_Y + 8
+    LDA #2      ; Tile number
+    STA sprite_wall + SPRITE_TILE + 8
+    LDA #3      ; Attributes
+    STA sprite_wall + SPRITE_ATTRIB + 8
+    LDA #80    ; X position
+    STA sprite_wall + SPRITE_X + 8
+
+    LDA #180    ; Y position
     STA sprite_wall + SPRITE_Y
     LDA #2      ; Tile number
     STA sprite_wall + SPRITE_TILE
     LDA #1      ; Attributes
     STA sprite_wall + SPRITE_ATTRIB
-    LDA #128    ; X position
+    LDA #100    ; X position
     STA sprite_wall + SPRITE_X
 	
-	LDA #140    ; Y position
+    LDA #160    ; Y position
     STA sprite_wall + SPRITE_Y + 4
     LDA #2      ; Tile number
     STA sprite_wall + SPRITE_TILE + 4
@@ -211,14 +224,6 @@ InitWalls:
     LDA #136    ; X position
     STA sprite_wall + SPRITE_X + 4
 	
-	LDA #140    ; Y position
-    STA sprite_wall + SPRITE_Y + 8
-    LDA #2      ; Tile number
-    STA sprite_wall + SPRITE_TILE + 8
-    LDA #3      ; Attributes
-    STA sprite_wall + SPRITE_ATTRIB + 8
-    LDA #120    ; X position
-    STA sprite_wall + SPRITE_X + 8
     
 ; Write sprite data for spikes
 InitSpikes:
@@ -313,17 +318,17 @@ NMI:
     STA JOYPAD1
     LDA #0
     STA JOYPAD1
-    STA touching_ground ; Default ground touching to false
-
+    STA touching_ground  ; Default ground touching to false
+    STA wall_jump_right  ; Default wall jumping to false
+    STA wall_jump_left
+    
     ; Read joypad state
     LDX #0
     STX joypad1_state
 
 CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_label, collision_label
-    ; If there is no overlap horizontally or vertially jump out
+    ; If there is no overlap horizontally or vertially branch out to no collision
     ; Else quit
-    ; Get bottom left pixel of meatboy
-    ; Get bottom right of meatboy
 
     ; Horizontal check
     LDA sprite_player + SPRITE_X
@@ -348,7 +353,7 @@ CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_lab
     ; Set player y location to top of collided sprite
     LDA \2
     SBC #8
-    STA sprite_player + SPRITE_Y
+    STA LOW(collision_location)
     JMP \4
     .endm
 
@@ -357,9 +362,57 @@ CollisionCheck:
 CheckWall2:
 	CheckForPlayerCollision sprite_wall + SPRITE_X + 4, sprite_wall + SPRITE_Y + 4, CheckWall3, TouchingGround
 CheckWall3:
-	CheckForPlayerCollision sprite_wall + SPRITE_X + 8, sprite_wall + SPRITE_Y + 8, ReadController, TouchingGround
+	CheckForPlayerCollision sprite_wall + SPRITE_X + 8, sprite_wall + SPRITE_Y + 8, CheckCollisionWithScreen, TouchingGround
+CheckCollisionWithScreen:
+    ; Collision with bottom
+    LDA sprite_player + SPRITE_Y    ; Get top of sprite
+    SEC
+    ADC #8                          ; Add 8 (player height) to get feet
+    CMP #223                        ; Top of bottom background sprite floor 
+    BCC CheckScreenLeft             ; Branch to next collision if player is higher than the floor
+    LDA #215                        ; Set y collision point to top of floor
+    STA sprite_player + SPRITE_Y
+    LDA #1
+    STA touching_ground ; Set touching ground to true
+        
+CheckScreenLeft:
+    ; Collision with left
+    LDA sprite_player + SPRITE_X
+    SEC
+    CMP #17                         ; Extra pixel leeway needed for wall jumping
+    BCS CheckScreenRight              ; Branch to next if not touching left side
+    LDA #16                         
+    STA sprite_player + SPRITE_X    ; Set player position to the left side of screen
+    LDA #1
+    STA wall_jump_right             ; Allow wall jumping
+    JMP StopHorizontalMomentum      ; Stop player horizonal momentum
+
+CheckScreenRight:
+    ; Collision with right
+    LDA sprite_player + SPRITE_X    ; Get left side of player
+    SEC
+    ADC #8                          ; Add width of the player
+    CMP #241                        ; Extra pixel leeway needed for wall jumping
+    BCC ReadController              ; Branch to next if not touching right side
+    LDA #232                         
+    STA sprite_player + SPRITE_X    ; Set player position to the right side of screen
+    LDA #1
+    STA wall_jump_left              ; Allow wall jumping
+
+StopHorizontalMomentum:
+    LDA #0                          
+    STA player_left_speed           ; Stop player horizonal momentum
+    STA player_left_speed + 1
+    STA player_right_speed
+    STA player_right_speed + 1
+    
+
+    JMP ReadController
 
 TouchingGround:
+    ; Set player y location to top of collided sprite
+    LDA LOW(collision_location)
+    STA sprite_player + SPRITE_Y
     LDA #1
     STA touching_ground ; Set touching ground to true
 
@@ -413,11 +466,6 @@ ReadLeft_Done:         ; }
     LDA joypad1_state
     AND #BUTTON_UP
     BEQ ReadUp_Done  ; if ((JOYPAD1 & 1) != 0) {
-    LDA sprite_player + SPRITE_Y
-    CLC
-    SEC
-    SBC #1
-    STA sprite_player + SPRITE_Y
 
 ReadUp_Done:         ; }
 
@@ -426,7 +474,25 @@ ReadUp_Done:         ; }
     AND #BUTTON_A
     BEQ ReadA_Done
     LDA touching_ground
-    BEQ ReadA_Done          ; Don't jump if not touching ground
+    BNE Jump                ; Allow jump if touching ground is true
+    LDA wall_jump_right     
+    BNE WallJumpRight       ; Allow wall jumping right
+    LDA wall_jump_left     
+    BNE WallJumpLeft        ; Allow wall jumping left
+    JMP ReadA_Done          ; Don't jump if not touching a surface
+WallJumpRight:
+    LDA #LOW(WALL_JUMP_SPEED)    ; Apply horizontal momentum
+    STA player_right_speed
+    LDA #HIGH(WALL_JUMP_SPEED)
+    STA player_right_speed + 1
+    JMP Jump                     ; Apply upward force
+WallJumpLeft:
+    LDA #LOW(WALL_JUMP_SPEED)    ; Apply horizontal momentum
+    STA player_left_speed
+    LDA #HIGH(WALL_JUMP_SPEED)
+    STA player_left_speed + 1
+    JMP Jump                     ; Apply upward force    
+Jump:
     LDA #LOW(JUMP_SPEED)    ; Jump, set player speed
     STA player_speed
     LDA #HIGH(JUMP_SPEED)
