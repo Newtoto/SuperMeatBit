@@ -332,7 +332,7 @@ CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_lab
     CMP \1
     BCS \3  ; Not colliding if x is greater than the right side
     CLC
-    ADC #16
+    ADC #15
     CMP \1
     BCC \3  ; Not colliding if x is less than the left side
     ; Vertical check
@@ -458,16 +458,18 @@ CheckSpikeCollision:
 
 ; Handle collision
 SpikeHit:
-    ; Move player back to start
-    LDA #PLAYER_START_POSITION_Y    ; Y position
-    STA sprite_player + SPRITE_Y
-    LDA #PLAYER_START_POSITION_X    ; X position
-    STA sprite_player + SPRITE_X
     LDA #0                          ; Stop player run speed
     STA player_right_speed
     STA player_right_speed + 1
     STA player_left_speed
     STA player_left_speed + 1
+    STA player_speed                ; Stop player fall
+    ; Move player back to start
+    LDA #PLAYER_START_POSITION_Y    ; Y position
+    STA sprite_player + SPRITE_Y
+    LDA #PLAYER_START_POSITION_X    ; X position
+    STA sprite_player + SPRITE_X
+    
 	
 NoCollisionWithSpike:
 
