@@ -319,10 +319,9 @@ NMI:
     LDX #0
     STX joypad1_state
 
-CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_label
+CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_label, collision_label
     ; If there is no overlap horizontally or vertially jump out
     ; Else quit
-
     ; Get bottom left pixel of meatboy
     ; Get bottom right of meatboy
 
@@ -331,22 +330,26 @@ CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_lab
     SEC
     SBC #8
     CMP \1
-    BCS \3  ; >
+    BCS \3  ; Not colliding if x is greater than the right side
     CLC
     ADC #16
     CMP \1
-    BCC \3  ; <
+    BCC \3  ; Not colliding if x is less than the left side
     ; Vertical check
     LDA sprite_player + SPRITE_Y
     SEC
     SBC #8
     CMP \2
-    BCS \3  ; >
+    BCS \3  ; Not colliding if y is less than the top
     CLC
     ADC #16
     CMP \2
-    BCC \3	; <
-	JMP \4
+    BCC \3	; Not colliding if y is greater than the bottom
+    ; Set player y location to top of collided sprite
+    LDA \2
+    SBC #8
+    STA sprite_player + SPRITE_Y
+    JMP \4
     .endm
 
 CollisionCheck:
