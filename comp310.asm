@@ -51,6 +51,7 @@ player_left_speed       .rs 2 ; Subixels per frame -- 16 bits
 left_momentum           .rs 2 ; Subixels per frame ^ 2 -- 16 bits
 right_momentum          .rs 2 ; Subixels per frame ^ 2 -- 16 bits
 is_running              .rs 1 ; Checks if player is running
+touching_ground         .rs 1 ; Ground check
 
     .rsset $0200
 sprite_player      .rs 4
@@ -65,7 +66,7 @@ SPRITE_ATTRIB      .rs 1
 SPRITE_X           .rs 1
 
 GRAVITY             = 16        ; Subpixels per frame ^ 2
-JUMP_SPEED          = -3 * 256  ; Subpixels per frame
+JUMP_SPEED          = -2 * 256  ; Subpixels per frame
 RUN_SPEED           = 2* 256    ; Subpixels per frame
 RUN_ACC             = 8
 MAX_SPEED           = 16
@@ -312,10 +313,53 @@ NMI:
     STA JOYPAD1
     LDA #0
     STA JOYPAD1
+    STA touching_ground ; Default ground touching to false
 
     ; Read joypad state
     LDX #0
     STX joypad1_state
+
+CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_label
+    ; If there is no overlap horizontally or vertially jump out
+    ; Else quit
+
+    ; Get bottom left pixel of meatboy
+    ; Get bottom right of meatboy
+
+    ; Horizontal check
+    LDA sprite_player + SPRITE_X
+    SEC
+    SBC #8
+    CMP \1
+    BCS \3  ; >
+    CLC
+    ADC #16
+    CMP \1
+    BCC \3  ; <
+    ; Vertical check
+    LDA sprite_player + SPRITE_Y
+    SEC
+    SBC #8
+    CMP \2
+    BCS \3  ; >
+    CLC
+    ADC #16
+    CMP \2
+    BCC \3	; <
+	JMP \4
+    .endm
+
+CollisionCheck:
+    CheckForPlayerCollision sprite_wall + SPRITE_X, sprite_wall + SPRITE_Y, CheckWall2, TouchingGround	; TODO Separate function to slow falling if to the side
+CheckWall2:
+	CheckForPlayerCollision sprite_wall + SPRITE_X + 4, sprite_wall + SPRITE_Y + 4, CheckWall3, TouchingGround
+CheckWall3:
+	CheckForPlayerCollision sprite_wall + SPRITE_X + 8, sprite_wall + SPRITE_Y + 8, ReadController, TouchingGround
+
+TouchingGround:
+    LDA #1
+    STA touching_ground ; Set touching ground to true
+
 ReadController:
     LDA JOYPAD1
     LSR A
@@ -378,8 +422,9 @@ ReadUp_Done:         ; }
     LDA joypad1_state
     AND #BUTTON_A
     BEQ ReadA_Done
-    ; Jump, set player speed
-    LDA #LOW(JUMP_SPEED)
+    LDA touching_ground
+    BEQ ReadA_Done          ; Don't jump if not touching ground
+    LDA #LOW(JUMP_SPEED)    ; Jump, set player speed
     STA player_speed
     LDA #HIGH(JUMP_SPEED)
     STA player_speed + 1
@@ -404,36 +449,6 @@ CheckForRunning:
     STA right_momentum            ; Stop momentum if not running
     STA left_momentum
 
-CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_label
-    ; If there is no overlap horizontally or vertially jump out
-    ; Else quit
-
-    ; Get bottom left pixel of meatboy
-    ; Get bottom right of meatboy
-
-    ; Horizontal check
-    LDA sprite_player + SPRITE_X
-    SEC
-    SBC #8
-    CMP \1
-    BCS \3  ; >
-    CLC
-    ADC #16
-    CMP \1
-    BCC \3  ; <
-    ; Vertical check
-    LDA sprite_player + SPRITE_Y
-    SEC
-    SBC #8
-    CMP \2
-    BCS \3  ; >
-    CLC
-    ADC #16
-    CMP \2
-    BCC \3	; <
-	JMP \4
-    .endm
-
 CheckSpikeCollision:
 ; Check collision with spikes
     CheckForPlayerCollision sprite_spike + SPRITE_X, sprite_spike + SPRITE_Y, NoCollisionWithSpike, SpikeHit
@@ -457,29 +472,26 @@ NoCollisionWithSpike:
 
 BandageHit:
     ; Delete bandage + add to score?
-    CLC
-    ADC #50
+    LDA #50
     STA sprite_bandage
 
 NoCollisionWithBandage:
 
-	CheckForPlayerCollision sprite_wall + SPRITE_X, sprite_wall + SPRITE_Y, CheckWall2, StopPlayerFall	; TODO Separate function to slow falling if to the side
-CheckWall2:
-	CheckForPlayerCollision sprite_wall + SPRITE_X + 4, sprite_wall + SPRITE_Y + 4, CheckWall3, StopPlayerFall
-CheckWall3:
-	CheckForPlayerCollision sprite_wall + SPRITE_X + 8, sprite_wall + SPRITE_Y + 8, CalculateFall, StopPlayerFall
-
-StopPlayerFall:
-    LDA #0
-    STA player_speed     ; Low 8 btis
+    LDA touching_ground
+    BEQ CalculateFall    ; Skip breaking fall if not touching ground
+    LDA player_speed + 1
+    CMP #20              ; Check if player speed is negative (jumping)
+    BCS CalculateFall    ; Don't stop speed if jumping
+    LDA #0               ; Stop falling
+    STA player_speed     ; Low 8 bits
     STA player_speed + 1 ; High 8 bits
     JMP CalculateMomentum
 
 CalculateFall:
     ; Check if speed is greater than max speed
-    LDA MAX_SPEED
-    CMP player_speed
-    BCS ApplyGravity
+    ;LDA MAX_SPEED
+    ;CMP player_speed
+    ;BCC ApplyGravity
 
     ; Increment player speed
     LDA player_speed    ; Low 8 bits
@@ -498,12 +510,7 @@ ApplyGravity:
     LDA sprite_player + SPRITE_Y  ; High 8 bits
     ADC player_speed + 1          ; Don't clear carry flag
     STA sprite_player + SPRITE_Y
-	
-SlowGravity:
-	LDA sprite_player + SPRITE_Y
-    CLC
-    ADC #1
-    STA sprite_player + SPRITE_Y
+
 
 AddMomentum .macro ; parameters: maxSpeed, speed, acceleration, endFunction
     ; Check if speed is greater than max speed
@@ -521,6 +528,7 @@ AddMomentum .macro ; parameters: maxSpeed, speed, acceleration, endFunction
     STA \2 + 1
     .endm
 
+; Left and right momentum
 CalculateMomentum:
     AddMomentum MAX_SPEED, player_right_speed, right_momentum, ApplyDrag     ; Right momentum
     ; Apply right momentum to player
