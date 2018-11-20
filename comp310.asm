@@ -55,9 +55,10 @@ TOUCHING_GROUND = %01000000
 WALL_JUMP_RIGHT = %00100000
 WALL_JUMP_LEFT  = %00010000
 
+score            .rs 1 ;
 collision_location      .rs 1 ; Low stores x, high stores y
 running_sprite_number   .rs 1 ; Stores point of run animation
-player_score            .rs 1 ;
+
 
     .rsset $0200
 sprite_player               .rs 4
@@ -233,47 +234,38 @@ InitWalls:
 ; Write sprite data for spikes
 InitSpikes:
     LDX #0
-    InitSpikesLoop:
+    ; InitSpikesLoop:
     LDA #140     ; Y position
     STA sprite_spike + SPRITE_Y, X
     LDA #1      ; Tile number
     STA sprite_spike + SPRITE_TILE, X
     LDA #0      ; Attributes
     STA sprite_spike + SPRITE_ATTRIB, X
+    TXA
     LDA #140 + NUM_SPIKES * 4     ; X position
     STA sprite_spike + SPRITE_X, X
-    ; Increment X register by 4
-    TXA
-    CLC
-    ADC #4
-    TAX
-    ; See if 
-    CPX NUM_SPIKES * 4     ; Compare X to dec 8
-    BNE InitSpikesLoop
+    ; ; Increment X register by 4
+    ; TXA
+    ; CLC
+    ; ADC #4
+    ; TAX
+    ; ; See if 
+    ; CPX NUM_SPIKES * 4     ; Compare X to dec 8
+    ; BNE InitSpikesLoop
 
 InitCollectables:
-    LDX #0
-    InitCollectablesLoop:
     LDA #180     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #3      ; Tile number
     STA sprite_bandage + SPRITE_TILE, X
     LDA #1      ; Attributes
     STA sprite_bandage + SPRITE_ATTRIB, X
-    LDA #140 + NUM_BANDAGES * 4     ; X position
+    LDA #140     ; X position
     STA sprite_bandage + SPRITE_X, X
-    ; Increment X register by 4
-    TXA
-    CLC
-    ADC #4
-    TAX
-    ; See if 
-    CPX NUM_BANDAGES * 4     ; Compare X to dec 8
-    BNE InitCollectablesLoop
 
 InitScore:
-    LDA #0
-    STA player_score    ; Set player score to 0
+    LDA #$0
+    STA score    ; Set player score to 0
 
     LDA #8      ; Y position
     STA sprite_score + SPRITE_Y
@@ -607,11 +599,12 @@ NoCollisionWithSpike:
 
 BandageHit:
     ; Delete bandage + add to score?
-    LDA #50
-    STA sprite_bandage + SPRITE_Y
-    LDA player_score
-    ADC #1
-    LDA player_score
+    LDA sprite_bandage + SPRITE_X
+    ADC #10
+    STA sprite_bandage + SPRITE_X
+    LDA score
+    ADC #$1
+    LDA score
 
 NoCollisionWithBandage:
 
@@ -699,7 +692,7 @@ Idle:
     LDA #16      ; Tile number
     STA sprite_player + SPRITE_TILE
 EndSpriteSwitching:
-    LDA player_score
+    LDA score
     ADC #48
     STA sprite_score + SPRITE_TILE
     
