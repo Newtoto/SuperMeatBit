@@ -358,7 +358,7 @@ CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_lab
     .endm
 
 CollisionCheck:
-    CheckForPlayerCollision sprite_wall + SPRITE_X, sprite_wall + SPRITE_Y, CheckWall2, TouchingGround	; TODO Separate function to slow falling if to the side
+    CheckForPlayerCollision sprite_wall + SPRITE_X, sprite_wall + SPRITE_Y, CheckWall2, TouchingGround
 CheckWall2:
 	CheckForPlayerCollision sprite_wall + SPRITE_X + 4, sprite_wall + SPRITE_Y + 4, CheckWall3, TouchingGround
 CheckWall3:
@@ -583,34 +583,56 @@ ApplyGravity:
     STA sprite_player + SPRITE_Y
 
 
-AddMomentum .macro ; parameters: maxSpeed, speed, acceleration, endFunction
+CalculateSpeed .macro ; parameters: speed, acceleration
+    ; Calculate player speed
+    LDA \1    ; Low 8 bits
+    CLC
+    ADC \2
+    STA \1
+    LDA \1 + 1 ; High 8 bits
+    ADC \2 + 1   ; Don't clear carry flag
+    STA \1 + 1
+    .endm
+
+CalculateNetSpeed .macro ; parameters: maxSpeed, speed_smaller, speed_larger, acceleration
     ; Check if speed is greater than max speed
     ;LDA \1
     ;CMP \2
     ;BCC \4  ; Branch if max speed is exceeded
 
-    ; Calculate player speed
-    LDA \2    ; Low 8 bits
+    ; Subtract smaller speed from larger speed to get net speed
+    LDA \3      ; Larger speed (Low 8 bits)
     CLC
-    ADC \3
-    STA \2
-    LDA \2 + 1 ; High 8 bits
-    ADC \3 + 1   ; Don't clear carry flag
-    STA \2 + 1
+    SBC \2      ; Subtract smaller speed
+    STA \3
+    LDA \3 + 1  ; Larger speed (High 8 bits)
+    SBC \2 + 1  ; Subtract smaller speed (don't clear carry flag)
+    STA \3 + 1
+    LDA #0
+    STA \2      ; Zero smaller speed
     .endm
 
-; Left and right momentum
 CalculateMomentum:
-    AddMomentum MAX_SPEED, player_right_speed, right_momentum, ApplyDrag     ; Right momentum
+    CalculateSpeed player_right_speed, right_momentum
+    CalculateSpeed player_left_speed, left_momentum
+
+    ; Left and right momentum
+    CLC
+    LDA player_right_speed + 1  
+    CMP player_left_speed + 1       ; See if left is faster than right
+    BCS ApplyMomentumRight          ; Branch to apply momentum left if left is greater
+
+ApplyMomentumRight:
     ; Apply right momentum to player
-    LDA player_position_sub_x     ; Low 8 bits
+    LDA player_position_sub_x       ; Low 8 bits
     CLC
     ADC player_right_speed
     STA player_position_sub_x
-    LDA sprite_player + SPRITE_X  ; High 8 bits
+    LDA sprite_player + SPRITE_X    ; High 8 bits
     ADC player_right_speed + 1      ; Don't clear carry flag
     STA sprite_player + SPRITE_X
-    AddMomentum MAX_SPEED, player_left_speed, left_momentum, ApplyDrag     ; Left momentum
+
+ApplyMomentumLeft:
     ; Apply left momentum to player
     LDA player_position_sub_x     ; Low 8 bits
     CLC
