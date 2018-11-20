@@ -46,6 +46,7 @@ nametable_address       .rs 2
 player_vertical_speed   .rs 2 ; Subpixels per frame -- 16 bits
 player_position_sub_y   .rs 1
 player_position_sub_x   .rs 1
+score                   .rs 1 
 player_right_speed      .rs 2 ; Subpixels per frame -- 16 bits
 player_left_speed       .rs 2 ; Subpixels per frame -- 16 bits
 checking_bools          .rs 1 ; is_running, TOUCHING_GROUND, WALL_JUMP_RIGHT, WALL_JUMP_LEFT
@@ -55,17 +56,17 @@ TOUCHING_GROUND = %01000000
 WALL_JUMP_RIGHT = %00100000
 WALL_JUMP_LEFT  = %00010000
 
-score            .rs 1 ;
 collision_location      .rs 1 ; Low stores x, high stores y
 running_sprite_number   .rs 1 ; Stores point of run animation
 
 
     .rsset $0200
 sprite_player               .rs 4
-sprite_wall                 .rs 16
-sprite_spike                .rs 8
+sprite_wall                 .rs 12
+sprite_spike                .rs 4
 sprite_bandage              .rs 4
-sprite_score                .rs 4
+sprite_score_10             .rs 4
+sprite_score_1              .rs 4
 
     .rsset $0000
 SPRITE_Y           .rs 1
@@ -73,13 +74,13 @@ SPRITE_TILE        .rs 1
 SPRITE_ATTRIB      .rs 1
 SPRITE_X           .rs 1
 
-GRAVITY             = 16        ; Subpixels per frame ^ 2
-JUMP_SPEED          = -2 * 256  ; Subpixels per frame
-RUN_SPEED           = 4 * 256    ; Subpixels per frame
+GRAVITY             = 16            ; Subpixels per frame ^ 2
+JUMP_SPEED          = -2 * 256      ; Subpixels per frame
+RUN_SPEED           = 4 * 256       ; Subpixels per frame
 RUN_ACC             = 8
 MAX_SPEED           = 16
-WALL_JUMP_SPEED     = 1 * 256    ; Subpixels per frame
-RUN_ANIMATION_LENGTH = 3        ; Number of frames in run animation - 1
+WALL_JUMP_SPEED     = 1 * 256       ; Subpixels per frame
+RUN_ANIMATION_LENGTH = 3            ; Number of frames in run animation - 1
 
     .bank 0
     .org $C000
@@ -268,13 +269,22 @@ InitScore:
     STA score    ; Set player score to 0
 
     LDA #8      ; Y position
-    STA sprite_score + SPRITE_Y
+    STA sprite_score_10 + SPRITE_Y
     LDA #48      ; Tile number
-    STA sprite_score + SPRITE_TILE
+    STA sprite_score_10 + SPRITE_TILE
     LDA #0      ; Attributes
-    STA sprite_score + SPRITE_ATTRIB
-    LDA #8    ; X position
-    STA sprite_score + SPRITE_X
+    STA sprite_score_10 + SPRITE_ATTRIB
+    LDA #16    ; X position
+    STA sprite_score_10 + SPRITE_X
+
+    LDA #8      ; Y position
+    STA sprite_score_1 + SPRITE_Y
+    LDA #48      ; Tile number
+    STA sprite_score_1 + SPRITE_TILE
+    LDA #0      ; Attributes
+    STA sprite_score_1 + SPRITE_ATTRIB
+    LDA #24    ; X position
+    STA sprite_score_1 + SPRITE_X
 
 ; ---------------------------------------------------------------------------
 
@@ -600,11 +610,38 @@ NoCollisionWithSpike:
 BandageHit:
     ; Delete bandage + add to score?
     LDA sprite_bandage + SPRITE_X
-    ADC #10
+    ADC #3
     STA sprite_bandage + SPRITE_X
+    LDX #0
+    LDA score   ; Increment score
+    ADC #1
+    STA score
+ScoreLoop:
     LDA score
-    ADC #$1
+    CMP #10     ; See if score is greater than 10
+    BCC ShowScore
+    INX
+    SBC #10     ; Subtract 10 from score
+    STA score
+    JMP ScoreLoop
+ShowScore:
     LDA score
+    ADC #48      ; Tile number
+    STA sprite_score_1 + SPRITE_TILE
+    TXA
+    ADC #48
+    STA sprite_score_10 + SPRITE_TILE
+AddOnTensLoop:
+    TXA
+    CMP #1
+    BCS NoCollisionWithBandage  ; Stop adding when X is 0
+    SBC #1                      ; Subtract 1 from tens
+    TAX
+    LDA score
+    ADC #10                     ; Add 10 to score
+    STA score
+    JMP AddOnTensLoop
+
 
 NoCollisionWithBandage:
 
@@ -692,9 +729,9 @@ Idle:
     LDA #16      ; Tile number
     STA sprite_player + SPRITE_TILE
 EndSpriteSwitching:
-    LDA score
-    ADC #48
-    STA sprite_score + SPRITE_TILE
+    ;LDA score
+    ;ADC score
+    ;STA sprite_score + SPRITE_TILE
     
     
 	RTI         ; Return from interrupt
