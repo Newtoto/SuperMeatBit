@@ -43,25 +43,30 @@ PLAYER_START_POSITION_Y = 120
     .rsset $0000
 joypad1_state           .rs 1
 nametable_address       .rs 2
-player_speed            .rs 2 ; Subixels per frame -- 16 bits
+player_vertical_speed   .rs 2 ; Subpixels per frame -- 16 bits
 player_position_sub_y   .rs 1
 player_position_sub_x   .rs 1
-player_right_speed      .rs 2 ; Subixels per frame -- 16 bits
-player_left_speed       .rs 2 ; Subixels per frame -- 16 bits
-left_momentum           .rs 2 ; Subixels per frame ^ 2 -- 16 bits
-right_momentum          .rs 2 ; Subixels per frame ^ 2 -- 16 bits
-is_running              .rs 1 ; Checks if player is running
-touching_ground         .rs 1 ; Ground check
-wall_jump_right         .rs 1 ; For wall jumping right
-wall_jump_left          .rs 1 ; For wall jumping left
+player_right_speed      .rs 2 ; Subpixels per frame -- 16 bits
+player_left_speed       .rs 2 ; Subpixels per frame -- 16 bits
+left_momentum           .rs 2 ; Subpixels per frame ^ 2 -- 16 bits
+right_momentum          .rs 2 ; Subpixels per frame ^ 2 -- 16 bits
+checking_bools          .rs 1 ; is_running, TOUCHING_GROUND, WALL_JUMP_RIGHT, WALL_JUMP_LEFT
+
+IS_RUNNING      = %10000000
+TOUCHING_GROUND = %01000000
+WALL_JUMP_RIGHT = %00100000
+WALL_JUMP_LEFT  = %00010000
+
 collision_location      .rs 1 ; Low stores x, high stores y
 running_sprite_number   .rs 1 ; Stores point of run animation
+player_score            .rs 1 ;
 
     .rsset $0200
 sprite_player               .rs 4
 sprite_wall                 .rs 16
-sprite_spike                .rs 4
+sprite_spike                .rs 8
 sprite_bandage              .rs 4
+sprite_score                .rs 4
 
     .rsset $0000
 SPRITE_Y           .rs 1
@@ -268,6 +273,19 @@ InitCollectables:
     CPX NUM_BANDAGES * 4     ; Compare X to dec 8
     BNE InitCollectablesLoop
 
+InitScore:
+    LDA #0
+    STA player_score    ; Set player score to 0
+
+    LDA #8      ; Y position
+    STA sprite_score + SPRITE_Y
+    LDA #48      ; Tile number
+    STA sprite_score + SPRITE_TILE
+    LDA #0      ; Attributes
+    STA sprite_score + SPRITE_ATTRIB
+    LDA #8    ; X position
+    STA sprite_score + SPRITE_X
+
 ; ---------------------------------------------------------------------------
 
 ; Load background sprites
@@ -320,9 +338,9 @@ NMI:
     STA JOYPAD1
     LDA #0
     STA JOYPAD1
-    STA touching_ground  ; Default ground touching to false
-    STA wall_jump_right  ; Default wall jumping to false
-    STA wall_jump_left
+    STA TOUCHING_GROUND  ; Default ground touching to false
+    STA WALL_JUMP_RIGHT  ; Default wall jumping to false
+    STA WALL_JUMP_LEFT
     
     ; Read joypad state
     LDX #0
@@ -375,7 +393,7 @@ CheckCollisionWithScreen:
     LDA #215                        ; Set y collision point to top of floor
     STA sprite_player + SPRITE_Y
     LDA #1
-    STA touching_ground ; Set touching ground to true
+    STA TOUCHING_GROUND ; Set touching ground to true
         
 CheckScreenLeft:
     ; Collision with left
@@ -386,7 +404,7 @@ CheckScreenLeft:
     LDA #16                         
     STA sprite_player + SPRITE_X    ; Set player position to the left side of screen
     LDA #1
-    STA wall_jump_right             ; Allow wall jumping
+    STA WALL_JUMP_RIGHT             ; Allow wall jumping
     JMP StopHorizontalMomentum      ; Stop player horizonal momentum
 
 CheckScreenRight:
@@ -399,7 +417,7 @@ CheckScreenRight:
     LDA #232                         
     STA sprite_player + SPRITE_X    ; Set player position to the right side of screen
     LDA #1
-    STA wall_jump_left              ; Allow wall jumping
+    STA WALL_JUMP_LEFT              ; Allow wall jumping
 
 StopHorizontalMomentum:
     LDA #0                          
@@ -416,7 +434,7 @@ TouchingGround:
     LDA LOW(collision_location)
     STA sprite_player + SPRITE_Y
     LDA #1
-    STA touching_ground ; Set touching ground to true
+    STA TOUCHING_GROUND ; Set touching ground to true
 
 ReadController:
     LDA JOYPAD1
@@ -427,14 +445,14 @@ ReadController:
     BNE ReadController
 
     LDA #0
-    STA is_running      ; Default is running to false
+    STA IS_RUNNING      ; Default is running to false
 
     ; React to Right button
     LDA joypad1_state
     AND #BUTTON_RIGHT
     BEQ ReadRight_Done       ; if ((JOYPAD1 & 1) != 0) {
     LDA #1 
-    STA is_running           ; Set is running bool to true
+    STA IS_RUNNING           ; Set is running bool to true
     LDA #RUN_ACC
     STA right_momentum         ; Start momentum
 
@@ -457,7 +475,7 @@ ReadDown_Done:         ; }
     AND #BUTTON_LEFT
     BEQ ReadLeft_Done  ; if ((JOYPAD1 & 1) != 0) {
     LDA #1
-    STA is_running      ; Set is running bool to true
+    STA IS_RUNNING      ; Set is running bool to true
     LDA #RUN_ACC
     STA left_momentum    ; Start momentum
 
@@ -475,11 +493,11 @@ ReadUp_Done:         ; }
     LDA joypad1_state
     AND #BUTTON_A
     BEQ ReadA_Done
-    LDA touching_ground
+    LDA TOUCHING_GROUND
     BNE Jump                ; Allow jump if touching ground is true
-    LDA wall_jump_right     
+    LDA WALL_JUMP_RIGHT     
     BNE WallJumpRight       ; Allow wall jumping right
-    LDA wall_jump_left     
+    LDA WALL_JUMP_LEFT     
     BNE WallJumpLeft        ; Allow wall jumping left
     JMP ReadA_Done          ; Don't jump if not touching a surface
 WallJumpRight:
@@ -496,9 +514,9 @@ WallJumpLeft:
     JMP Jump                     ; Apply upward force    
 Jump:
     LDA #LOW(JUMP_SPEED)    ; Jump, set player speed
-    STA player_speed
+    STA player_vertical_speed
     LDA #HIGH(JUMP_SPEED)
-    STA player_speed + 1
+    STA player_vertical_speed + 1
 
 ReadA_Done:
     
@@ -512,7 +530,7 @@ ReadA_Done:
     STA player_right_speed + 1
     STA player_left_speed
     STA player_left_speed + 1
-    STA player_speed                ; Stop player fall
+    STA player_vertical_speed                ; Stop player fall
     ; Move player back to start
     LDA #PLAYER_START_POSITION_Y    ; Y position
     STA sprite_player + SPRITE_Y
@@ -526,16 +544,10 @@ ReadB_Done:
     LDA #$02
     STA OAMDMA
 
-    ; ; Apply gravity to player
-    ; LDA $0200
-    ; CLC
-    ; ADC #1
-    ; STA $0200
-
     LDX #0
 
 CheckForRunning:
-    LDA is_running
+    LDA IS_RUNNING
     BNE CheckSpikeCollision         ; Branch if running
     STA right_momentum              ; Stop run acceleration if not running
     STA left_momentum
@@ -551,7 +563,7 @@ SpikeHit:
     STA player_right_speed + 1
     STA player_left_speed
     STA player_left_speed + 1
-    STA player_speed                ; Stop player fall
+    STA player_vertical_speed                ; Stop player fall
     ; Move player back to start
     LDA #PLAYER_START_POSITION_Y    ; Y position
     STA sprite_player + SPRITE_Y
@@ -566,42 +578,45 @@ NoCollisionWithSpike:
 BandageHit:
     ; Delete bandage + add to score?
     LDA #50
-    STA sprite_bandage
+    STA sprite_bandage + SPRITE_Y
+    LDA player_score
+    ADC #1
+    LDA player_score
 
 NoCollisionWithBandage:
 
-    LDA touching_ground
+    LDA TOUCHING_GROUND
     BEQ CalculateFall    ; Skip breaking fall if not touching ground
-    LDA player_speed + 1
+    LDA player_vertical_speed + 1
     CMP #20              ; Check if player speed is negative (jumping)
     BCS CalculateFall    ; Don't stop speed if jumping
     LDA #0               ; Stop falling
-    STA player_speed     ; Low 8 bits
-    STA player_speed + 1 ; High 8 bits
+    STA player_vertical_speed     ; Low 8 bits
+    STA player_vertical_speed + 1 ; High 8 bits
     JMP CalculateMomentum
 
 CalculateFall:
     ; Check if speed is greater than max speed
     ;LDA MAX_SPEED
-    ;CMP player_speed
+    ;CMP player_vertical_speed
     ;BCC ApplyGravity
 
     ; Increment player speed
-    LDA player_speed    ; Low 8 bits
+    LDA player_vertical_speed    ; Low 8 bits
     CLC
     ADC #LOW(GRAVITY)
-    STA player_speed
-    LDA player_speed + 1 ; High 8 bits
+    STA player_vertical_speed
+    LDA player_vertical_speed + 1 ; High 8 bits
     ADC #HIGH(GRAVITY)   ; Don't clear carry flag
-    STA player_speed + 1
+    STA player_vertical_speed + 1
 ApplyGravity:
     ; Apply fall to player
 	LDA player_position_sub_y       ; Low 8 bits
     CLC
-    ADC player_speed
+    ADC player_vertical_speed
     STA player_position_sub_y
     LDA sprite_player + SPRITE_Y  ; High 8 bits
-    ADC player_speed + 1          ; Don't clear carry flag
+    ADC player_vertical_speed + 1          ; Don't clear carry flag
     STA sprite_player + SPRITE_Y
 
 
@@ -677,11 +692,11 @@ ChangeSpriteCheck .macro ; parameters: check_value, dont_change_label, tile_if_c
 
 ; Sprite switcher/animator
 CheckLeftWall:
-    ChangeSpriteCheck wall_jump_left, CheckRightWall, #34, sprite_player + SPRITE_TILE, EndSpriteSwitching
+    ChangeSpriteCheck WALL_JUMP_LEFT, CheckRightWall, #34, sprite_player + SPRITE_TILE, EndSpriteSwitching
 CheckRightWall:
-    ChangeSpriteCheck wall_jump_right, RunningCheck, #33, sprite_player + SPRITE_TILE, EndSpriteSwitching
+    ChangeSpriteCheck WALL_JUMP_RIGHT, RunningCheck, #33, sprite_player + SPRITE_TILE, EndSpriteSwitching
 RunningCheck:
-    LDA is_running
+    LDA IS_RUNNING
     BEQ Idle
     LDA running_sprite_number   ; Get point in run animation
     CLC
@@ -703,6 +718,9 @@ Idle:
     LDA #16      ; Tile number
     STA sprite_player + SPRITE_TILE
 EndSpriteSwitching:
+    LDA player_score
+    ADC #48
+    STA sprite_score + SPRITE_TILE
     
     
 	RTI         ; Return from interrupt
