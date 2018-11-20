@@ -633,6 +633,7 @@ ShowScore:
     STA sprite_score_10 + SPRITE_TILE
 AddOnTensLoop:
     TXA
+    CLC
     CMP #10
     BCS NoCollisionWithBandage  ; Stop adding when X is 0
     SBC #1                      ; Subtract 1 from tens
