@@ -55,12 +55,13 @@ touching_ground         .rs 1 ; Ground check
 wall_jump_right         .rs 1 ; For wall jumping right
 wall_jump_left          .rs 1 ; For wall jumping left
 collision_location      .rs 1 ; Low stores x, high stores y
+running_sprite_number   .rs 1 ; Stores point of run animation
 
     .rsset $0200
-sprite_player      .rs 4
-sprite_wall        .rs 16
-sprite_spike       .rs 4
-sprite_bandage     .rs 4
+sprite_player               .rs 4
+sprite_wall                 .rs 16
+sprite_spike                .rs 4
+sprite_bandage              .rs 4
 
     .rsset $0000
 SPRITE_Y           .rs 1
@@ -74,6 +75,7 @@ RUN_SPEED           = 4 * 256    ; Subpixels per frame
 RUN_ACC             = 8
 MAX_SPEED           = 16
 WALL_JUMP_SPEED     = 1 * 256    ; Subpixels per frame
+RUN_ANIMATION_LENGTH = 3        ; Number of frames in run animation - 1
 
     .bank 0
     .org $C000
@@ -188,7 +190,7 @@ LoadPalettesLoop:
 InitPlayer:
     LDA #PLAYER_START_POSITION_Y    ; Y position
     STA sprite_player + SPRITE_Y
-    LDA #0      ; Tile number
+    LDA #2      ; Tile number
     STA sprite_player + SPRITE_TILE
     LDA #0      ; Attributes
     STA sprite_player + SPRITE_ATTRIB
@@ -499,6 +501,26 @@ Jump:
     STA player_speed + 1
 
 ReadA_Done:
+    
+    ; React to B button
+    LDA joypad1_state
+    AND #BUTTON_B
+    BEQ ReadB_Done
+    ; Reset player
+    LDA #0                          ; Stop player run speed
+    STA player_right_speed
+    STA player_right_speed + 1
+    STA player_left_speed
+    STA player_left_speed + 1
+    STA player_speed                ; Stop player fall
+    ; Move player back to start
+    LDA #PLAYER_START_POSITION_Y    ; Y position
+    STA sprite_player + SPRITE_Y
+    LDA #PLAYER_START_POSITION_X    ; X position
+    STA sprite_player + SPRITE_X
+
+
+ReadB_Done:
     LDA #0
     STA OAMADDR
     LDA #$02
@@ -514,8 +536,8 @@ ReadA_Done:
 
 CheckForRunning:
     LDA is_running
-    BNE CheckSpikeCollision     ; Branch if running
-    STA right_momentum            ; Stop momentum if not running
+    BNE CheckSpikeCollision         ; Branch if running
+    STA right_momentum              ; Stop run acceleration if not running
     STA left_momentum
 
 CheckSpikeCollision:
@@ -644,7 +666,49 @@ ApplyMomentumLeft:
 
 ApplyDrag:
 
+ChangeSpriteCheck .macro ; parameters: check_value, dont_change_label, tile_if_changed, tile_to_change, end_jump_function
+
+    LDA \1
+    BEQ \2  ; Change sprite if value is true (1)
+    LDA \3  ; Get new tile number value
+    STA \4  ; Store new value
+    JMP \5  ; Jump to skip other sprite checks
+    .endm
+
+; Sprite switcher/animator
+CheckLeftWall:
+    ChangeSpriteCheck wall_jump_left, CheckRightWall, #34, sprite_player + SPRITE_TILE, EndSpriteSwitching
+CheckRightWall:
+    ChangeSpriteCheck wall_jump_right, RunningCheck, #33, sprite_player + SPRITE_TILE, EndSpriteSwitching
+RunningCheck:
+    LDA is_running
+    BEQ Idle
+    LDA running_sprite_number   ; Get point in run animation
+    CLC
+    CMP RUN_ANIMATION_LENGTH    ; Make sure it is smaller than animation length
+    BCC UpdateRunSprite
+    LDA #0
+    STA running_sprite_number       ; Reset run animation
+UpdateRunSprite:
+    LDA running_sprite_number
+    ADC #16
+    STA sprite_player + SPRITE_TILE
+    LDA running_sprite_number
+    ADC #1
+    STA running_sprite_number
+    JMP EndSpriteSwitching
+Idle:
+    LDA #0
+    STA running_sprite_number       ; Reset run animation
+    LDA #16      ; Tile number
+    STA sprite_player + SPRITE_TILE
+EndSpriteSwitching:
+    
+    
 	RTI         ; Return from interrupt
+
+
+
 
 ; ---------------------------------------------------------------------------
 sprites:
