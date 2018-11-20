@@ -48,8 +48,6 @@ player_position_sub_y   .rs 1
 player_position_sub_x   .rs 1
 player_right_speed      .rs 2 ; Subpixels per frame -- 16 bits
 player_left_speed       .rs 2 ; Subpixels per frame -- 16 bits
-left_momentum           .rs 2 ; Subpixels per frame ^ 2 -- 16 bits
-right_momentum          .rs 2 ; Subpixels per frame ^ 2 -- 16 bits
 checking_bools          .rs 1 ; is_running, TOUCHING_GROUND, WALL_JUMP_RIGHT, WALL_JUMP_LEFT
 
 IS_RUNNING      = %10000000
@@ -366,10 +364,10 @@ CalculateSpeed .macro ; parameters: speed, acceleration
     ; Calculate player speed
     LDA \1    ; Low 8 bits
     CLC
-    ADC \2
+    ADC #LOW(\2)
     STA \1
     LDA \1 + 1 ; High 8 bits
-    ADC \2 + 1   ; Don't clear carry flag
+    ADC #HIGH(\2 + 1)   ; Don't clear carry flag
     STA \1 + 1
     .endm
 
@@ -493,8 +491,7 @@ ReadController:
     BEQ ReadRight_Done       ; if ((JOYPAD1 & 1) != 0) {
     LDA #1 
     STA IS_RUNNING           ; Set is running bool to true
-    LDA #RUN_ACC
-    STA right_momentum         ; Start momentum
+    CalculateSpeed player_right_speed, RUN_ACC
 
 ReadRight_Done:         ; }
 
@@ -516,8 +513,7 @@ ReadDown_Done:         ; }
     BEQ ReadLeft_Done  ; if ((JOYPAD1 & 1) != 0) {
     LDA #1
     STA IS_RUNNING      ; Set is running bool to true
-    LDA #RUN_ACC
-    STA left_momentum    ; Start momentum
+    CalculateSpeed player_left_speed, RUN_ACC
 
 
 ReadLeft_Done:         ; }
@@ -586,12 +582,6 @@ ReadB_Done:
 
     LDX #0
 
-CheckForRunning:
-    LDA IS_RUNNING
-    BNE CheckSpikeCollision         ; Branch if running
-    STA right_momentum              ; Stop run acceleration if not running
-    STA left_momentum
-
 CheckSpikeCollision:
 ; Check collision with spikes
     CheckForPlayerCollision sprite_spike + SPRITE_X, sprite_spike + SPRITE_Y, NoCollisionWithSpike, SpikeHit
@@ -633,7 +623,7 @@ NoCollisionWithBandage:
     LDA #0               ; Stop falling
     STA player_vertical_speed     ; Low 8 bits
     STA player_vertical_speed + 1 ; High 8 bits
-    JMP CalculateMomentum
+    JMP ApplyMomentumRight
 
 CalculateFall:
     ; Check if speed is greater than max speed
@@ -658,16 +648,6 @@ ApplyGravity:
     LDA sprite_player + SPRITE_Y  ; High 8 bits
     ADC player_vertical_speed + 1          ; Don't clear carry flag
     STA sprite_player + SPRITE_Y
-
-CalculateMomentum:
-    CalculateSpeed player_right_speed, right_momentum
-    CalculateSpeed player_left_speed, left_momentum
-
-    ; Left and right momentum
-    CLC
-    LDA player_right_speed + 1  
-    CMP player_left_speed + 1       ; See if left is faster than right
-    BCS ApplyMomentumRight          ; Branch to apply momentum left if left is greater
 
 ApplyMomentumRight:
     ; Apply right momentum to player
