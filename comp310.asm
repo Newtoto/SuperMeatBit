@@ -633,7 +633,7 @@ ScreenRight:
     PlayerOnWall WALL_JUMP_LEFT, #232
 ScreenLeft:
     CMP #17
-    BCS ColumnCollisionCheckDone    ; If greater than 17, try next column 
+    BCS XCol1                       ; If greater than 17, try next column 
     ; Player is on screen left
     PlayerOnWall WALL_JUMP_RIGHT, #16
 XCol1:
@@ -644,7 +644,7 @@ XCol1:
     ; TODO CHECK Y VALUE
     ; Parameters: Wall_Y_Top, Wall_Y_Bottom, Next_Collision_Check
     CheckVerticalCollision #144, #255, XCol2
-
+    PlayerOnWall WALL_JUMP_LEFT, #72
 XCol2:
     CMP #88
     BCS XCol3                       ; If greater than 88, try next column
