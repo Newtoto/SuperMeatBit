@@ -83,6 +83,25 @@ MAX_SPEED           = 16
 WALL_JUMP_SPEED     = 1 * 256       ; Subpixels per frame
 RUN_ANIMATION_LENGTH = 3            ; Number of frames in run animation - 1
 
+; Bandage collectables locations
+BANDAGE_START_Y     = 19
+BANDAGE_START_X     = 20
+
+BANDAGE_1_START_Y   = 19
+BANDAGE_1_START_X   = 228
+
+BANDAGE_2_START_Y   = 91
+BANDAGE_2_START_X   = 60
+
+BANDAGE_3_START_Y   = 131
+BANDAGE_3_START_X   = 204
+
+BANDAGE_4_START_Y   = 167
+BANDAGE_4_START_X   = 148
+
+BANDAGE_5_START_Y   = 211
+BANDAGE_5_START_X   = 20
+
     .bank 0
     .org $C000
 
@@ -257,73 +276,73 @@ InitSpikes:
 
 InitCollectables:
     LDX #0
-    LDA #19     ; Y position
+    LDA #BANDAGE_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #3      ; Tile number
     STA sprite_bandage + SPRITE_TILE, X
     LDA #1      ; Attributes
     STA sprite_bandage + SPRITE_ATTRIB, X
-    LDA #20    ; X position
+    LDA #BANDAGE_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
     INX
     INX
     INX
     INX
-    LDA #19     ; Y position
+    LDA #BANDAGE_1_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #3      ; Tile number
     STA sprite_bandage + SPRITE_TILE, X
     LDA #1      ; Attributes
     STA sprite_bandage + SPRITE_ATTRIB, X
-    LDA #228     ; X position
+    LDA #BANDAGE_1_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
     INX
     INX
     INX
     INX
-    LDA #91     ; Y position
+    LDA #BANDAGE_2_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #3      ; Tile number
     STA sprite_bandage + SPRITE_TILE, X
     LDA #1      ; Attributes
     STA sprite_bandage + SPRITE_ATTRIB, X
-    LDA #60     ; X position
+    LDA #BANDAGE_2_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
     INX
     INX
     INX
     INX
-    LDA #131     ; Y position
+    LDA #BANDAGE_3_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #3      ; Tile number
     STA sprite_bandage + SPRITE_TILE, X
     LDA #1      ; Attributes
     STA sprite_bandage + SPRITE_ATTRIB, X
-    LDA #204     ; X position
+    LDA #BANDAGE_3_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
     INX
     INX
     INX
     INX
-    LDA #167     ; Y position
+    LDA #BANDAGE_4_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #3      ; Tile number
     STA sprite_bandage + SPRITE_TILE, X
     LDA #1      ; Attributes
     STA sprite_bandage + SPRITE_ATTRIB, X
-    LDA #148     ; X position
+    LDA #BANDAGE_4_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
     INX
     INX
     INX
     INX
-    LDA #211     ; Y position
+    LDA #BANDAGE_5_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #3      ; Tile number
     STA sprite_bandage + SPRITE_TILE, X
     LDA #1      ; Attributes
     STA sprite_bandage + SPRITE_ATTRIB, X
-    LDA #20     ; X position
+    LDA #BANDAGE_5_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
 
 InitScore:
@@ -463,6 +482,83 @@ ChangeSpriteCheck .macro ; parameters: check_value, dont_change_label, tile_if_c
     STA \4  ; Store new value
     JMP \5  ; Jump to skip other sprite checks
     .endm
+
+ResetPlayer .macro
+    LDA #0
+    STA score_1                     ; Reset score units
+    STA score_10                    ; Reset score tens
+    STA player_right_speed          ; Stop player run speed
+    STA player_right_speed + 1
+    STA player_left_speed
+    STA player_left_speed + 1
+    STA player_vertical_speed                ; Stop player fall
+    STA player_vertical_speed + 1
+    ; Move player back to start
+    LDA #PLAYER_START_POSITION_Y    ; Y position
+    STA sprite_player + SPRITE_Y
+    LDA #PLAYER_START_POSITION_X    ; X position
+    STA sprite_player + SPRITE_X
+    .endm
+
+; ResetBandages .macro
+;     LDX #0
+;     LDA BANDAGE_START_Y
+;     STA sprite_bandage + SPRITE_Y, X
+;     LDA BANDAGE_START_X
+;     STA sprite_bandage + SPRITE_X, X
+;     INX
+;     INX
+;     INX
+;     INX
+;     LDA BANDAGE_1_START_Y
+;     STA sprite_bandage + SPRITE_Y, X
+;     LDA BANDAGE_1_START_X
+;     STA sprite_bandage + SPRITE_X, X
+;     INX
+;     INX
+;     INX
+;     INX
+;     LDA BANDAGE_2_START_Y
+;     STA sprite_bandage + SPRITE_Y, X
+;     LDA BANDAGE_2_START_X
+;     STA sprite_bandage + SPRITE_X, X
+;     INX
+;     INX
+;     INX
+;     INX
+;     LDA BANDAGE_3_START_Y
+;     STA sprite_bandage + SPRITE_Y, X
+;     LDA BANDAGE_3_START_X
+;     STA sprite_bandage + SPRITE_X, X
+;     INX
+;     INX
+;     INX
+;     INX
+;     LDA BANDAGE_4_START_Y
+;     STA sprite_bandage + SPRITE_Y, X
+;     LDA BANDAGE_4_START_X
+;     STA sprite_bandage + SPRITE_X, X
+;     INX
+;     INX
+;     INX
+;     INX
+;     LDA BANDAGE_5_START_Y
+;     STA sprite_bandage + SPRITE_Y, X
+;     LDA BANDAGE_5_START_X
+;     STA sprite_bandage + SPRITE_X, X
+;     .endm
+
+HorizontalCollisionCheck .macro ; Parameters: Ground_Y, Ground_X1, Ground_X2, Next_Collision_Check
+    LDA sprite_player + SPRITE_Y    ; Get top of player sprite
+    ADC #8                          ; Add 8 (player height) to get feet
+    CMP \1                          ; Top of floor
+    BCC \2                          ; Branch to next collision if player is higher than the floor 
+    LDA \1
+    SBC #8                          ; Subtract 8 to get snap position of player
+    STA sprite_player + SPRITE_Y
+    LDA #1
+    STA TOUCHING_GROUND             ; Set touching ground to true
+    .endm
 ; ---------------------------------------------------------------------------
 
 ; NMI is called on every frame
@@ -486,17 +582,11 @@ CheckWall2:
 	CheckForPlayerCollision sprite_wall + SPRITE_X + 4, sprite_wall + SPRITE_Y + 4, CheckWall3, TouchingGround
 CheckWall3:
 	CheckForPlayerCollision sprite_wall + SPRITE_X + 8, sprite_wall + SPRITE_Y + 8, CheckCollisionWithScreen, TouchingGround
+
+; Floor checks
 CheckCollisionWithScreen:
     ; Collision with bottom
-    LDA sprite_player + SPRITE_Y    ; Get top of sprite
-    SEC
-    ADC #8                          ; Add 8 (player height) to get feet
-    CMP #223                        ; Top of bottom background sprite floor 
-    BCC CheckScreenLeft             ; Branch to next collision if player is higher than the floor
-    LDA #215                        ; Set y collision point to top of floor
-    STA sprite_player + SPRITE_Y
-    LDA #1
-    STA TOUCHING_GROUND ; Set touching ground to true
+    HorizontalCollisionCheck #223, CheckScreenLeft
         
 CheckScreenLeft:
     ; Collision with left
@@ -625,19 +715,9 @@ ReadA_Done:
     LDA joypad1_state
     AND #BUTTON_B
     BEQ ReadB_Done
-    ; Reset player
-    LDA #0                          ; Stop player run speed
-    STA player_right_speed
-    STA player_right_speed + 1
-    STA player_left_speed
-    STA player_left_speed + 1
-    STA player_vertical_speed                ; Stop player fall
-    ; Move player back to start
-    LDA #PLAYER_START_POSITION_Y    ; Y position
-    STA sprite_player + SPRITE_Y
-    LDA #PLAYER_START_POSITION_X    ; X position
-    STA sprite_player + SPRITE_X
-
+    ; Reset score, player location and bandages
+    ResetPlayer
+    JMP NMI
 
 ReadB_Done:
     LDA #0
