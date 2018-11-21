@@ -597,65 +597,42 @@ CheckScreenBottom:
     JMP CheckWalls
 
 CheckWalls:
-; ScreenRight:
-;     LDA sprite_player + SPRITE_X
-;     CMP #17                         ; Pixel of leeway for wall jumping                         
-;     BCS CheckSpace1                 ; Keep checking wall collisions if player is to the right of #17
-;     LDA #16                         ; Player is touching left wall
-;     STA sprite_player + SPRITE_X
-;     LDA #1
-;     STA WALL_JUMP_RIGHT
-;     JMP StopHorizontalMomentum
-; CheckSpace1:
-;     CMP #88
-;     BCC CheckColumn3                 ; If player is to the left of #80 and right of #17 it is not touching any right walls
-; CheckColumn2:
-;     CMP #97            
-;     BCS CheckColumn3                ; Branch if player is to the right of #96
-;     LDA sprite_player + SPRITE_Y    ; Player is in range of wall 1
-;     CMP #144                        ; Branch if player is above wall 1
-;     BCC CheckColumn3
-;     LDA #96
-;     STA sprite_player + SPRITE_X
-;     LDA #1
-;     STA WALL_JUMP_RIGHT
-;     JMP StopHorizontalMomentum
-
-; CheckColumn3:
-;     ;TODO CHECK RIGHT WALL
-;     JMP ReadController
-
+    LDA sprite_player + SPRITE_X        ; Get left of player
 ScreenRight:
-    LDA sprite_player + SPRITE_X    ; Get left of player
     CMP #232
-    BCC ScreenLeft                  ; If less than 232, try rest of collisions
-    ; Player is on screen right
-    PlayerOnWall WALL_JUMP_LEFT, #232
+    BCC ScreenLeft                      ; If less than 232, try rest of collisions
+    PlayerOnWall WALL_JUMP_LEFT, #232   ; Player is touching screen right
 ScreenLeft:
     CMP #17
-    BCS XCol1                       ; If greater than 17, try next column 
-    ; Player is on screen left
-    PlayerOnWall WALL_JUMP_RIGHT, #16
+    BCS XCol1                           ; If greater than 17, try next column 
+    PlayerOnWall WALL_JUMP_RIGHT, #16   ; Player is touching screen left
 XCol1:
     CMP #72
-    BCC ColumnCollisionCheckDone    ; If #17 < sprite_player + SPRITE_X < #72, it is touching no walls
+    BCC XCol2                           ; If #17 < sprite_player + SPRITE_X < #72, it is touching no walls
     CMP #80
-    BCS XCol2                       ; If greater than 80, try next column
-    ; TODO CHECK Y VALUE
-    ; Parameters: Wall_Y_Top, Wall_Y_Bottom, Next_Collision_Check
-    CheckVerticalCollision #144, #255, XCol2
-    PlayerOnWall WALL_JUMP_LEFT, #72
+    BCS XCol2                                                       ; If greater than 80, try next column
+    CheckVerticalCollision #144, #255, ColumnCollisionCheckDone     ; If player isn't in range of wall, stop checking wall collisions
+    PlayerOnWall WALL_JUMP_LEFT, #72                                ; Player is touching right wall
 XCol2:
     CMP #88
-    BCS XCol3                       ; If greater than 88, try next column
-    ; TODO CHECK Y VALUE
+    BCC ColumnCollisionCheckDone        ; If #80 < sprite_player + SPRITE_X < #88, it is touching no walls
+    CMP #97
+    BCS XCol3                                                       ; If greater than 97, try next column
+    CheckVerticalCollision #160, #255, CheckOtherWall               ; If player isn't in range of wall, check other wall
+    PlayerOnWall WALL_JUMP_RIGHT, #96                               ; Player is touching left wall
+CheckOtherWall:
+    CheckVerticalCollision #64, #80, ColumnCollisionCheckDone       ; If player isn't in range of wall, stop checking wall collisions
+    PlayerOnWall WALL_JUMP_LEFT, #88                                ; Player is touching right wall
 XCol3:
-    CMP #96
-    BCS XCol4                       ; If greater than 96, try next column
-    ; TODO CHECK Y VALUE
+    CMP #120
+    BCC ColumnCollisionCheckDone        ; If #97 < sprite_player + SPRITE_X < #120, it is touching no walls
+    CMP #129
+    BCS XCol4                                                       ; If greater than 128, try next column
+    CheckVerticalCollision #64, #80, ColumnCollisionCheckDone       ; If player isn't in range of wall, stop checking wall collisions
+    PlayerOnWall WALL_JUMP_RIGHT, #128                              ; Player is touching left wall
 XCol4:
     CMP #120
-    BCC ColumnCollisionCheckDone    ; If #96 < sprite_player + SPRITE_X < #120, it is touching no walls
+    BCC ColumnCollisionCheckDone                                    ; If #96 < sprite_player + SPRITE_X < #120, it is touching no walls
 XCol5:
 XCol6:
 XCol7:
