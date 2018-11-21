@@ -572,11 +572,17 @@ FloorCollisionCheck .macro ; Parameters: Ground_Y_Top, Ground_X_Left, Ground_X_R
 LeftWallCollisionCheck .macro ; Parameters: Wall_X_Right, Wall_Y_Top, Wall_Y_Bottom, Next_Collision_Check, Break_Out_Label
     LDA sprite_player + SPRITE_Y    ; Check player top is less than (above) bottom of wall
     CMP \3
+    BCS \4                          ; Branch if above wall
+    ADC #8                          ; Add 8 to get bottom of player
+    CMP \2                          ; Check player bottom is more than (below) top of wall
+    BCC \4                          ; Branch if below wall
+    LDA sprite_player + SPRITE_X
+    ADC #8                          ; Add 8 to get right of player
+    CMP \1                          ; Check if player right is to the left of wall                    
     BCC \4
-    
-    LDA \1                          ; Extra pixel leeway for wall jumping
-    CMP sprite_player + SPRITE_X    ; Extra pixel leeway needed for wall jumping
-    BCC \4                          ; Branch to next if not touching left side                        
+    LDA \1                          
+    CMP sprite_player + SPRITE_X    ; Check if player left is to the right of wall
+    BCC \4                          ; Branch to next if not touching right side
     STA sprite_player + SPRITE_X    ; Set player position to the left side of screen
     LDA #1
     STA WALL_JUMP_RIGHT             ; Allow wall jumping
@@ -599,19 +605,25 @@ NMI:
     LDX #0
     STX joypad1_state
 
-CollisionCheck:
-    CheckForPlayerCollision sprite_wall + SPRITE_X, sprite_wall + SPRITE_Y, CheckWall2, TouchingGround
-CheckWall2:
-	CheckForPlayerCollision sprite_wall + SPRITE_X + 4, sprite_wall + SPRITE_Y + 4, CheckWall3, TouchingGround
-CheckWall3:
-	CheckForPlayerCollision sprite_wall + SPRITE_X + 8, sprite_wall + SPRITE_Y + 8, CheckFloors, TouchingGround
-
 ; Floor checks, check must happen top down
 CheckFloors:
-    FloorCollisionCheck #143, #79, #175, CheckScreenBottom
+    FloorCollisionCheck #63, #97, #127, CheckFloor1
     LDA #1
     STA TOUCHING_GROUND             ; Set touching ground to true
     JMP CheckWalls
+
+CheckFloor1:
+    FloorCollisionCheck #63, #161, #175, CheckFloor2
+    LDA #1
+    STA TOUCHING_GROUND             ; Set touching ground to true
+    JMP CheckWalls
+
+CheckFloor2:
+    FloorCollisionCheck #143, #81, #175, CheckScreenBottom
+    LDA #1
+    STA TOUCHING_GROUND             ; Set touching ground to true
+    JMP CheckWalls
+
 CheckScreenBottom:
     ; Collision with bottom
     FloorCollisionCheck #223, #15, #240, CheckWalls
@@ -625,7 +637,16 @@ CheckLeftScreen:
     LeftWallCollisionCheck #16, #15, #240, CheckWall1
 
 CheckWall1:
-    LeftWallCollisionCheck #96, #15, #140, CheckScreenRight
+    LeftWallCollisionCheck #96, #176, #240, CheckWall2
+
+CheckWall2:
+    LeftWallCollisionCheck #128, #80, #96, CheckWall3
+
+CheckWall3:
+    LeftWallCollisionCheck #176, #64, #112, CheckWall4
+
+CheckWall4:
+    LeftWallCollisionCheck #176, #144, #184, CheckScreenRight
 
 ; CheckScreenLeft:
 ;     ; Collision with left
