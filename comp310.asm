@@ -548,16 +548,39 @@ ResetPlayer .macro
 ;     STA sprite_bandage + SPRITE_X, X
 ;     .endm
 
-HorizontalCollisionCheck .macro ; Parameters: Ground_Y, Ground_X1, Ground_X2, Next_Collision_Check
+FloorCollisionCheck .macro ; Parameters: Ground_Y_Top, Ground_X_Left, Ground_X_Right, Next_Collision_Check, Break_Out_Label
+    LDA sprite_player + SPRITE_X    ; Check player left is less than the right side
+    CMP \3                          
+    BCS \4                          ; Branch if player is to the right of collision
+    ; Check player right is more than the right side
+    ADC #8                          ; Add 8 to get right side of player
+    CMP \2                          
+    BCC \4                          ; Branch if player is to the right of collision
+    ; Check player right is to the left of Ground_X2
     LDA sprite_player + SPRITE_Y    ; Get top of player sprite
+    ; Check player head is above top of floor
+    CMP \1
+    BCS \4                          ; Branch to next collision if player is lower than the floor 
     ADC #8                          ; Add 8 (player height) to get feet
     CMP \1                          ; Top of floor
-    BCC \2                          ; Branch to next collision if player is higher than the floor 
+    BCC \4                          ; Branch to next collision if player is higher than the floor 
     LDA \1
     SBC #8                          ; Subtract 8 to get snap position of player
     STA sprite_player + SPRITE_Y
+    .endm
+
+LeftWallCollisionCheck .macro ; Parameters: Wall_X_Right, Wall_Y_Top, Wall_Y_Bottom, Next_Collision_Check, Break_Out_Label
+    LDA sprite_player + SPRITE_Y    ; Check player top is less than (above) bottom of wall
+    CMP \3
+    BCC \4
+    
+    LDA \1                          ; Extra pixel leeway for wall jumping
+    CMP sprite_player + SPRITE_X    ; Extra pixel leeway needed for wall jumping
+    BCC \4                          ; Branch to next if not touching left side                        
+    STA sprite_player + SPRITE_X    ; Set player position to the left side of screen
     LDA #1
-    STA TOUCHING_GROUND             ; Set touching ground to true
+    STA WALL_JUMP_RIGHT             ; Allow wall jumping
+    JMP StopHorizontalMomentum      ; Stop player horizonal momentum
     .endm
 ; ---------------------------------------------------------------------------
 
@@ -581,24 +604,39 @@ CollisionCheck:
 CheckWall2:
 	CheckForPlayerCollision sprite_wall + SPRITE_X + 4, sprite_wall + SPRITE_Y + 4, CheckWall3, TouchingGround
 CheckWall3:
-	CheckForPlayerCollision sprite_wall + SPRITE_X + 8, sprite_wall + SPRITE_Y + 8, CheckCollisionWithScreen, TouchingGround
+	CheckForPlayerCollision sprite_wall + SPRITE_X + 8, sprite_wall + SPRITE_Y + 8, CheckFloors, TouchingGround
 
-; Floor checks
-CheckCollisionWithScreen:
-    ; Collision with bottom
-    HorizontalCollisionCheck #223, CheckScreenLeft
-        
-CheckScreenLeft:
-    ; Collision with left
-    LDA sprite_player + SPRITE_X
-    SEC
-    CMP #17                         ; Extra pixel leeway needed for wall jumping
-    BCS CheckScreenRight              ; Branch to next if not touching left side
-    LDA #16                         
-    STA sprite_player + SPRITE_X    ; Set player position to the left side of screen
+; Floor checks, check must happen top down
+CheckFloors:
+    FloorCollisionCheck #143, #79, #175, CheckScreenBottom
     LDA #1
-    STA WALL_JUMP_RIGHT             ; Allow wall jumping
-    JMP StopHorizontalMomentum      ; Stop player horizonal momentum
+    STA TOUCHING_GROUND             ; Set touching ground to true
+    JMP CheckWalls
+CheckScreenBottom:
+    ; Collision with bottom
+    FloorCollisionCheck #223, #15, #240, CheckWalls
+    STA TOUCHING_GROUND             ; Set touching ground to true
+    JMP CheckWalls
+
+; Wall checks, check must happen left to right
+CheckWalls:
+
+CheckLeftScreen:
+    LeftWallCollisionCheck #16, #15, #240, CheckWall1
+
+CheckWall1:
+    LeftWallCollisionCheck #96, #15, #140, CheckScreenRight
+
+; CheckScreenLeft:
+;     ; Collision with left
+;     LDA sprite_player + SPRITE_X
+;     CMP #17                         ; Extra pixel leeway needed for wall jumping
+;     BCS CheckScreenRight              ; Branch to next if not touching left side
+;     LDA #16                         
+;     STA sprite_player + SPRITE_X    ; Set player position to the left side of screen
+;     LDA #1
+;     STA WALL_JUMP_RIGHT             ; Allow wall jumping
+;     JMP StopHorizontalMomentum      ; Stop player horizonal momentum
 
 CheckScreenRight:
     ; Collision with right
