@@ -65,7 +65,7 @@ running_sprite_number   .rs 1 ; Stores point of run animation
 sprite_player               .rs 4
 sprite_wall                 .rs 12
 sprite_spike                .rs 4
-sprite_bandage              .rs 4
+sprite_bandage              .rs 24
 sprite_score_10             .rs 4
 sprite_score_1              .rs 4
 
@@ -206,31 +206,31 @@ InitPlayer:
 ; Write sprite data for walls
 InitWalls: 
 	LDA #200    ; Y position
-    STA sprite_wall + SPRITE_Y + 8
-    LDA #2      ; Tile number
-    STA sprite_wall + SPRITE_TILE + 8
-    LDA #3      ; Attributes
-    STA sprite_wall + SPRITE_ATTRIB + 8
-    LDA #80    ; X position
-    STA sprite_wall + SPRITE_X + 8
-
-    LDA #180    ; Y position
     STA sprite_wall + SPRITE_Y
     LDA #2      ; Tile number
     STA sprite_wall + SPRITE_TILE
-    LDA #1      ; Attributes
+    LDA #3      ; Attributes
     STA sprite_wall + SPRITE_ATTRIB
-    LDA #100    ; X position
+    LDA #80    ; X position
     STA sprite_wall + SPRITE_X
-	
-    LDA #160    ; Y position
+
+    LDA #180    ; Y position
     STA sprite_wall + SPRITE_Y + 4
     LDA #2      ; Tile number
     STA sprite_wall + SPRITE_TILE + 4
-    LDA #2      ; Attributes
+    LDA #1      ; Attributes
     STA sprite_wall + SPRITE_ATTRIB + 4
-    LDA #136    ; X position
+    LDA #100    ; X position
     STA sprite_wall + SPRITE_X + 4
+	
+    LDA #160    ; Y position
+    STA sprite_wall + SPRITE_Y + 8
+    LDA #2      ; Tile number
+    STA sprite_wall + SPRITE_TILE + 8
+    LDA #2      ; Attributes
+    STA sprite_wall + SPRITE_ATTRIB + 8
+    LDA #136    ; X position
+    STA sprite_wall + SPRITE_X + 8
 	
     
 ; Write sprite data for spikes
@@ -256,13 +256,74 @@ InitSpikes:
     ; BNE InitSpikesLoop
 
 InitCollectables:
-    LDA #180     ; Y position
+    LDX #0
+    LDA #19     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #3      ; Tile number
     STA sprite_bandage + SPRITE_TILE, X
     LDA #1      ; Attributes
     STA sprite_bandage + SPRITE_ATTRIB, X
-    LDA #140     ; X position
+    LDA #20    ; X position
+    STA sprite_bandage + SPRITE_X, X
+    INX
+    INX
+    INX
+    INX
+    LDA #19     ; Y position
+    STA sprite_bandage + SPRITE_Y, X
+    LDA #3      ; Tile number
+    STA sprite_bandage + SPRITE_TILE, X
+    LDA #1      ; Attributes
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    LDA #228     ; X position
+    STA sprite_bandage + SPRITE_X, X
+    INX
+    INX
+    INX
+    INX
+    LDA #91     ; Y position
+    STA sprite_bandage + SPRITE_Y, X
+    LDA #3      ; Tile number
+    STA sprite_bandage + SPRITE_TILE, X
+    LDA #1      ; Attributes
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    LDA #60     ; X position
+    STA sprite_bandage + SPRITE_X, X
+    INX
+    INX
+    INX
+    INX
+    LDA #131     ; Y position
+    STA sprite_bandage + SPRITE_Y, X
+    LDA #3      ; Tile number
+    STA sprite_bandage + SPRITE_TILE, X
+    LDA #1      ; Attributes
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    LDA #204     ; X position
+    STA sprite_bandage + SPRITE_X, X
+    INX
+    INX
+    INX
+    INX
+    LDA #167     ; Y position
+    STA sprite_bandage + SPRITE_Y, X
+    LDA #3      ; Tile number
+    STA sprite_bandage + SPRITE_TILE, X
+    LDA #1      ; Attributes
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    LDA #148     ; X position
+    STA sprite_bandage + SPRITE_X, X
+    INX
+    INX
+    INX
+    INX
+    LDA #211     ; Y position
+    STA sprite_bandage + SPRITE_Y, X
+    LDA #3      ; Tile number
+    STA sprite_bandage + SPRITE_TILE, X
+    LDA #1      ; Attributes
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    LDA #20     ; X position
     STA sprite_bandage + SPRITE_X, X
 
 InitScore:
@@ -607,13 +668,46 @@ SpikeHit:
 	
 NoCollisionWithSpike:
 
-    CheckForPlayerCollision sprite_bandage + SPRITE_X, sprite_bandage + SPRITE_Y, NoCollisionWithBandage, BandageHit
+
+CheckBandages:
+    LDX #0
+    CheckForPlayerCollision sprite_bandage + SPRITE_X, sprite_bandage + SPRITE_Y, CheckBandage1, BandageHit
+CheckBandage1:
+    INX
+    INX
+    INX
+    INX    
+    CheckForPlayerCollision sprite_bandage + SPRITE_X + 4, sprite_bandage + SPRITE_Y + 4, CheckBandage2, BandageHit
+CheckBandage2:   
+    INX 
+    INX
+    INX
+    INX
+    CheckForPlayerCollision sprite_bandage + SPRITE_X + 8, sprite_bandage + SPRITE_Y + 8, CheckBandage3, BandageHit
+CheckBandage3:
+    INX 
+    INX
+    INX
+    INX    
+    CheckForPlayerCollision sprite_bandage + SPRITE_X + 12, sprite_bandage + SPRITE_Y + 12, CheckBandage4, BandageHit
+CheckBandage4:
+    INX 
+    INX
+    INX
+    INX    
+    CheckForPlayerCollision sprite_bandage + SPRITE_X + 16, sprite_bandage + SPRITE_Y + 16, CheckBandage5, BandageHit
+CheckBandage5:
+    INX 
+    INX
+    INX
+    INX    
+    CheckForPlayerCollision sprite_bandage + SPRITE_X + 20, sprite_bandage + SPRITE_Y + 20, NoCollisionWithBandage, BandageHit
 
 BandageHit:
     ; Delete bandage + add to score?
-    LDA sprite_bandage + SPRITE_X
+    LDA sprite_bandage + SPRITE_X, X
     ADC #3
-    STA sprite_bandage + SPRITE_X
+    STA sprite_bandage + SPRITE_X, X
     LDA score_1     ; Increment score units
     ADC #1
     STA score_1
@@ -746,12 +840,12 @@ nametable:
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
-    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
-    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
-    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
-    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
-    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
-    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
+    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$02,$12,$12,$03,$01,$01,$01,$01,$02,$03,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
+    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$04,$13,$13,$05,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
+    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
+    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
+    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
+    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$04,$05,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
@@ -767,7 +861,7 @@ nametable:
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$16,$12,$12,$12,$12,$12,$12,$12,$12,$17,$16,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$17,$11
-    .db $04,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$05,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$05
+    .db $04,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$05
     .db $00
     
     ;   %BRBLTRTL - B = Bottom, T = Top, L = Left, R = Right
