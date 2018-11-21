@@ -46,7 +46,8 @@ nametable_address       .rs 2
 player_vertical_speed   .rs 2 ; Subpixels per frame -- 16 bits
 player_position_sub_y   .rs 1
 player_position_sub_x   .rs 1
-score                   .rs 1 
+score_1                 .rs 1
+score_10                .rs 1
 player_right_speed      .rs 2 ; Subpixels per frame -- 16 bits
 player_left_speed       .rs 2 ; Subpixels per frame -- 16 bits
 checking_bools          .rs 1 ; is_running, TOUCHING_GROUND, WALL_JUMP_RIGHT, WALL_JUMP_LEFT
@@ -266,7 +267,8 @@ InitCollectables:
 
 InitScore:
     LDA #$0
-    STA score    ; Set player score to 0
+    STA score_1    ; Set player score to 0
+    STA score_10
 
     LDA #8      ; Y position
     STA sprite_score_10 + SPRITE_Y
@@ -612,37 +614,24 @@ BandageHit:
     LDA sprite_bandage + SPRITE_X
     ADC #3
     STA sprite_bandage + SPRITE_X
-    LDX #0
-    LDA score   ; Increment score
+    LDA score_1     ; Increment score units
     ADC #1
-    STA score
-ScoreLoop:
-    LDA score
-    CMP #10     ; See if score is greater than 10
+    STA score_1
+    CMP #10         ; See if score units is greater than 10
     BCC ShowScore
-    INX
-    SBC #10     ; Subtract 10 from score
-    STA score
-    JMP ScoreLoop
+    SBC #10         ; Subtract 10 from score units
+    STA score_1
+    LDA score_10    ; Add 1 to score tens
+    CLC
+    ADC #1
+    STA score_10
 ShowScore:
-    LDA score
+    LDA score_1
     ADC #48      ; Tile number
     STA sprite_score_1 + SPRITE_TILE
-    TXA
+    LDA score_10
     ADC #48
     STA sprite_score_10 + SPRITE_TILE
-AddOnTensLoop:
-    TXA
-    CLC
-    CMP #10
-    BCS NoCollisionWithBandage  ; Stop adding when X is 0
-    SBC #1                      ; Subtract 1 from tens
-    TAX
-    LDA score
-    ADC #10                     ; Add 10 to score
-    STA score
-    JMP AddOnTensLoop
-
 
 NoCollisionWithBandage:
 
