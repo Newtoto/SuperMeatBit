@@ -57,13 +57,12 @@ TOUCHING_GROUND = %01000000
 WALL_JUMP_RIGHT = %00100000
 WALL_JUMP_LEFT  = %00010000
 
-collision_location      .rs 1 ; Low stores x, high stores y
+collision_location      .rs 1 ; 
 running_sprite_number   .rs 1 ; Stores point of run animation
 
 
     .rsset $0200
 sprite_player               .rs 4
-sprite_wall                 .rs 12
 sprite_spike                .rs 4
 sprite_bandage              .rs 24
 sprite_score_10             .rs 4
@@ -76,7 +75,7 @@ SPRITE_ATTRIB      .rs 1
 SPRITE_X           .rs 1
 
 GRAVITY             = 16            ; Subpixels per frame ^ 2
-JUMP_SPEED          = -2 * 256      ; Subpixels per frame
+JUMP_SPEED          = -3 * 256      ; Subpixels per frame
 RUN_SPEED           = 4 * 256       ; Subpixels per frame
 RUN_ACC             = 8
 MAX_SPEED           = 16
@@ -221,36 +220,6 @@ InitPlayer:
     STA sprite_player + SPRITE_ATTRIB
     LDA #PLAYER_START_POSITION_X    ; X position
     STA sprite_player + SPRITE_X
-
-; Write sprite data for walls
-InitWalls: 
-	LDA #200    ; Y position
-    STA sprite_wall + SPRITE_Y
-    LDA #2      ; Tile number
-    STA sprite_wall + SPRITE_TILE
-    LDA #3      ; Attributes
-    STA sprite_wall + SPRITE_ATTRIB
-    LDA #80    ; X position
-    STA sprite_wall + SPRITE_X
-
-    LDA #180    ; Y position
-    STA sprite_wall + SPRITE_Y + 4
-    LDA #2      ; Tile number
-    STA sprite_wall + SPRITE_TILE + 4
-    LDA #1      ; Attributes
-    STA sprite_wall + SPRITE_ATTRIB + 4
-    LDA #100    ; X position
-    STA sprite_wall + SPRITE_X + 4
-	
-    LDA #160    ; Y position
-    STA sprite_wall + SPRITE_Y + 8
-    LDA #2      ; Tile number
-    STA sprite_wall + SPRITE_TILE + 8
-    LDA #2      ; Attributes
-    STA sprite_wall + SPRITE_ATTRIB + 8
-    LDA #136    ; X position
-    STA sprite_wall + SPRITE_X + 8
-	
     
 ; Write sprite data for spikes
 InitSpikes:
@@ -569,24 +538,21 @@ FloorCollisionCheck .macro ; Parameters: Ground_Y_Top, Ground_X_Left, Ground_X_R
     STA sprite_player + SPRITE_Y
     .endm
 
-LeftWallCollisionCheck .macro ; Parameters: Wall_X_Right, Wall_Y_Top, Wall_Y_Bottom, Next_Collision_Check, Break_Out_Label
+CheckVerticalCollision .macro ; Parameters: Wall_Y_Top, Wall_Y_Bottom, Next_Collision_Check
     LDA sprite_player + SPRITE_Y    ; Check player top is less than (above) bottom of wall
-    CMP \3
-    BCS \4                          ; Branch if above wall
-    ADC #8                          ; Add 8 to get bottom of player
-    CMP \2                          ; Check player bottom is more than (below) top of wall
-    BCC \4                          ; Branch if below wall
-    LDA sprite_player + SPRITE_X
-    ADC #8                          ; Add 8 to get right of player
-    CMP \1                          ; Check if player right is to the left of wall                    
-    BCC \4
-    LDA \1                          
-    CMP sprite_player + SPRITE_X    ; Check if player left is to the right of wall
-    BCC \4                          ; Branch to next if not touching right side
-    STA sprite_player + SPRITE_X    ; Set player position to the left side of screen
-    LDA #1
-    STA WALL_JUMP_RIGHT             ; Allow wall jumping
-    JMP StopHorizontalMomentum      ; Stop player horizonal momentum
+    CMP \2
+    BCS \3                          ; Branch if above wall
+    ADC #8                          ; Add 8 (player width) to get bottom of player
+    CMP \1                          ; Check player bottom is more than (below) top of wall
+    BCC \3                          ; Branch if below wall
+    .endm
+
+PlayerOnWall .macro ; Parameters: WallJump, SnapToLocation
+    LDA #1                          
+    STA \1                          ; Allow wall jumping
+    LDA \2                        
+    STA sprite_player + SPRITE_X    ; Snap player to wall
+    JMP StopHorizontalMomentum      ; Break out of wall collision checks
     .endm
 ; ---------------------------------------------------------------------------
 
@@ -630,46 +596,121 @@ CheckScreenBottom:
     STA TOUCHING_GROUND             ; Set touching ground to true
     JMP CheckWalls
 
-; Wall checks, check must happen left to right
 CheckWalls:
+; ScreenRight:
+;     LDA sprite_player + SPRITE_X
+;     CMP #17                         ; Pixel of leeway for wall jumping                         
+;     BCS CheckSpace1                 ; Keep checking wall collisions if player is to the right of #17
+;     LDA #16                         ; Player is touching left wall
+;     STA sprite_player + SPRITE_X
+;     LDA #1
+;     STA WALL_JUMP_RIGHT
+;     JMP StopHorizontalMomentum
+; CheckSpace1:
+;     CMP #88
+;     BCC CheckColumn3                 ; If player is to the left of #80 and right of #17 it is not touching any right walls
+; CheckColumn2:
+;     CMP #97            
+;     BCS CheckColumn3                ; Branch if player is to the right of #96
+;     LDA sprite_player + SPRITE_Y    ; Player is in range of wall 1
+;     CMP #144                        ; Branch if player is above wall 1
+;     BCC CheckColumn3
+;     LDA #96
+;     STA sprite_player + SPRITE_X
+;     LDA #1
+;     STA WALL_JUMP_RIGHT
+;     JMP StopHorizontalMomentum
 
-CheckLeftScreen:
-    LeftWallCollisionCheck #16, #15, #240, CheckWall1
+; CheckColumn3:
+;     ;TODO CHECK RIGHT WALL
+;     JMP ReadController
 
-CheckWall1:
-    LeftWallCollisionCheck #96, #176, #240, CheckWall2
+ScreenRight:
+    LDA sprite_player + SPRITE_X    ; Get left of player
+    CMP #232
+    BCC ScreenLeft                  ; If less than 232, try rest of collisions
+    ; Player is on screen right
+    PlayerOnWall WALL_JUMP_LEFT, #232
+ScreenLeft:
+    CMP #17
+    BCS ColumnCollisionCheckDone    ; If greater than 17, try next column 
+    ; Player is on screen left
+    PlayerOnWall WALL_JUMP_RIGHT, #16
+XCol1:
+    CMP #72
+    BCC ColumnCollisionCheckDone    ; If #17 < sprite_player + SPRITE_X < #72, it is touching no walls
+    CMP #80
+    BCS XCol2                       ; If greater than 80, try next column
+    ; TODO CHECK Y VALUE
+    ; Parameters: Wall_Y_Top, Wall_Y_Bottom, Next_Collision_Check
+    CheckVerticalCollision #144, #255, XCol2
 
-CheckWall2:
-    LeftWallCollisionCheck #128, #80, #96, CheckWall3
+XCol2:
+    CMP #88
+    BCS XCol3                       ; If greater than 88, try next column
+    ; TODO CHECK Y VALUE
+XCol3:
+    CMP #96
+    BCS XCol4                       ; If greater than 96, try next column
+    ; TODO CHECK Y VALUE
+XCol4:
+    CMP #120
+    BCC ColumnCollisionCheckDone    ; If #96 < sprite_player + SPRITE_X < #120, it is touching no walls
+XCol5:
+XCol6:
+XCol7:
+XCol8:
 
-CheckWall3:
-    LeftWallCollisionCheck #176, #64, #112, CheckWall4
 
-CheckWall4:
-    LeftWallCollisionCheck #176, #144, #184, CheckScreenRight
+
+
+
+ColumnCollisionCheckDone:
+    JMP ReadController
+
+
+
+; CheckCeilings:
+
+
+; ; Check goes from left to right
+; CheckLeftWalls:
+
+; ; Parameters: Wall_X_Right, Wall_Y_Top, Wall_Y_Bottom, Next_Collision_Check, Break_Out_Label
 
 ; CheckScreenLeft:
-;     ; Collision with left
-;     LDA sprite_player + SPRITE_X
-;     CMP #17                         ; Extra pixel leeway needed for wall jumping
-;     BCS CheckScreenRight              ; Branch to next if not touching left side
-;     LDA #16                         
-;     STA sprite_player + SPRITE_X    ; Set player position to the left side of screen
-;     LDA #1
-;     STA WALL_JUMP_RIGHT             ; Allow wall jumping
-;     JMP StopHorizontalMomentum      ; Stop player horizonal momentum
+;     LeftWallCollisionCheck #16, #15, #240, CheckLeftWall1, StopHorizontalMomentum
 
-CheckScreenRight:
-    ; Collision with right
-    LDA sprite_player + SPRITE_X    ; Get left side of player
-    SEC
-    ADC #8                          ; Add width of the player
-    CMP #241                        ; Extra pixel leeway needed for wall jumping
-    BCC ReadController              ; Branch to next if not touching right side
-    LDA #232                         
-    STA sprite_player + SPRITE_X    ; Set player position to the right side of screen
-    LDA #1
-    STA WALL_JUMP_LEFT              ; Allow wall jumping
+; CheckLeftWall1:
+;     LeftWallCollisionCheck #96, #176, #240, CheckLeftWall2, StopHorizontalMomentum
+
+; CheckLeftWall2:
+;     LeftWallCollisionCheck #128, #64, #80, CheckLeftWall3, StopHorizontalMomentum
+
+; CheckLeftWall3:
+;     LeftWallCollisionCheck #176, #64, #112, CheckLeftWall4, StopHorizontalMomentum
+
+; CheckLeftWall4:
+;     LeftWallCollisionCheck #176, #144, #184, ReadController, StopHorizontalMomentum
+
+; ; Check goes from right to left
+; ; CheckRightWalls:
+
+; CheckScreenRight:
+;     RightWallCollisionCheck #240, #15, #240, CheckRightWall1, StopHorizontalMomentum
+
+; CheckRightWall1:
+;     RightWallCollisionCheck #160, #15, #140, CheckRightWall2, StopHorizontalMomentum
+    
+; CheckRightWall2:
+;     LeftWallCollisionCheck #176, #64, #112, CheckRightWall3, StopHorizontalMomentum
+    
+; CheckRightWall3:
+;     LeftWallCollisionCheck #128, #80, #96, CheckRightWall4, StopHorizontalMomentum
+
+; CheckRightWall4:
+;     LeftWallCollisionCheck #96, #176, #240, ReadController, StopHorizontalMomentum
+
 
 StopHorizontalMomentum:
     LDA #0                          
@@ -680,13 +721,6 @@ StopHorizontalMomentum:
     
 
     JMP ReadController
-
-TouchingGround:
-    ; Set player y location to top of collided sprite
-    LDA LOW(collision_location)
-    STA sprite_player + SPRITE_Y
-    LDA #1
-    STA TOUCHING_GROUND ; Set touching ground to true
 
 ReadController:
     LDA JOYPAD1
@@ -786,6 +820,19 @@ ReadB_Done:
 
     LDX #0
 
+    LDA IS_RUNNING
+    BNE KeepMomentum        ; Keep momentum if running
+    LDA TOUCHING_GROUND
+    BEQ KeepMomentum        ; Keep momentum if not touching ground
+StopLeftMomentum:
+    LDA #0
+    STA player_left_speed       ; Stop left run momentum
+    STA player_left_speed + 1
+StopRightMomentum
+    STA player_right_speed      ; Stop right run momentum
+    STA player_right_speed + 1    
+KeepMomentum:
+
 CheckSpikeCollision:
 ; Check collision with spikes
     CheckForPlayerCollision sprite_spike + SPRITE_X, sprite_spike + SPRITE_Y, NoCollisionWithSpike, SpikeHit
@@ -797,7 +844,7 @@ SpikeHit:
     STA player_right_speed + 1
     STA player_left_speed
     STA player_left_speed + 1
-    STA player_vertical_speed                ; Stop player fall
+    STA player_vertical_speed       ; Stop player fall
     ; Move player back to start
     LDA #PLAYER_START_POSITION_Y    ; Y position
     STA sprite_player + SPRITE_Y
@@ -939,8 +986,9 @@ RunningCheck:
     LDA #0
     STA running_sprite_number       ; Reset run animation
 UpdateRunSprite:
-    LDA running_sprite_number
-    ADC #16
+    ; LDA running_sprite_number
+    ; ADC #16
+    LDA #17
     STA sprite_player + SPRITE_TILE
     LDA running_sprite_number
     ADC #1
