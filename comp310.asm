@@ -615,32 +615,41 @@ XCol1:
     PlayerOnWall WALL_JUMP_LEFT, #72                                ; Player is touching right wall
 XCol2:
     CMP #88
-    BCC XCol3                                                       ; If #80 < sprite_player + SPRITE_X < #88, it is touching no walls
+    BCC XCol3                           ; If #80 < sprite_player + SPRITE_X < #88, it is touching no walls
     CMP #97
     BCS XCol3                                                       ; If greater than 97, try next column
     CheckVerticalCollision #160, #255, CheckOtherWall               ; If player isn't in range of wall, check other wall
     PlayerOnWall WALL_JUMP_RIGHT, #96                               ; Player is touching left wall
 CheckOtherWall:
-    CheckVerticalCollision #64, #80, ColumnCollisionCheckDone       ; If player isn't in range of wall, stop checking wall collisions
+    CheckVerticalCollision #64, #80, XCol5                          ; If player isn't in range of wall, stop checking wall collisions
     PlayerOnWall WALL_JUMP_LEFT, #88                                ; Player is touching right wall
 XCol3:
     CMP #120
-    BCC ColumnCollisionCheckDone        ; If #97 < sprite_player + SPRITE_X < #120, it is touching no walls
+    BCC XCol5                           ; If #97 < sprite_player + SPRITE_X < #120, it is touching no walls
     CMP #129
     BCS XCol4                                                       ; If greater than 129, try next column
-    CheckVerticalCollision #64, #80, ColumnCollisionCheckDone       ; If player isn't in range of wall, stop checking wall collisions
+    CheckVerticalCollision #64, #80, XCol5                          ; If player isn't in range of wall, stop checking wall collisions
     PlayerOnWall WALL_JUMP_RIGHT, #128                              ; Player is touching left wall
 XCol4:
     CMP #152
-    BCC ColumnCollisionCheckDone                                    ; If #129 < sprite_player + SPRITE_X < #152, it is touching no walls
+    BCC ColumnCollisionCheckDone        ; If #129 < sprite_player + SPRITE_X < #152, it is touching no walls
     CMP #160
     BCS XCol5                                                       ; If greater than 160, try next column
     CheckVerticalCollision #64, #112, CheckOtherWall2               ; If player isn't in range of wall, try next wall
-    PlayerOnWall WALL_JUMP_LEFT, #152                              ; Player is touching right wall
+    PlayerOnWall WALL_JUMP_LEFT, #152                               ; Player is touching right wall
 CheckOtherWall2:
-    CheckVerticalCollision #144, #184, ColumnCollisionCheckDone       ; If player isn't in range of wall, stop checking wall collisions
+    CheckVerticalCollision #160, #184, ColumnCollisionCheckDone     ; If player isn't in range of wall, stop checking wall collisions
     PlayerOnWall WALL_JUMP_LEFT, #152                               ; Player is touching right wall
 XCol5:
+    CMP #168
+    BCC ColumnCollisionCheckDone        ; If #160 < sprite_player + SPRITE_X < #168, it is touching no walls
+    CMP #177
+    BCS ColumnCollisionCheckDone                                    ; If greater than 176, player is touching no walls
+    CheckVerticalCollision #64, #112, CheckOtherWall3               ; If player isn't in range of wall, try next wall
+    PlayerOnWall WALL_JUMP_RIGHT, #176                               ; Player is touching left wall
+CheckOtherWall3:
+    CheckVerticalCollision #144, #184, ColumnCollisionCheckDone     ; If player isn't in range of wall, stop checking wall collisions
+    PlayerOnWall WALL_JUMP_RIGHT, #176                               ; Player is touching right wall
 XCol6:
 XCol7:
 XCol8:
