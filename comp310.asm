@@ -538,11 +538,20 @@ FloorCollisionCheck .macro ; Parameters: Ground_Y_Top, Ground_X_Left, Ground_X_R
     STA sprite_player + SPRITE_Y
     .endm
 
+CheckHorizontalCollision .macro ; Parameters: Wall_X_Left, Wall_X_Right, Next_Collision_Check
+    LDA sprite_player + SPRITE_X    ; Check player left is greater than right of collision 
+    CMP \2                          
+    BCC \3                          ; Branch if to the right of collision
+    ADC #8                          ; Add 8 (player width) to get right of player
+    CMP \1                          ; Check player right is less than left of collision
+    BCS \3                          ; Branch if to the left of collision
+    .endm
+
 CheckVerticalCollision .macro ; Parameters: Wall_Y_Top, Wall_Y_Bottom, Next_Collision_Check
     LDA sprite_player + SPRITE_Y    ; Check player top is less than (above) bottom of wall
     CMP \2
     BCS \3                          ; Branch if above wall
-    ADC #8                          ; Add 8 (player width) to get bottom of player
+    ADC #8                          ; Add 8 (player height) to get bottom of player
     CMP \1                          ; Check player bottom is more than (below) top of wall
     BCC \3                          ; Branch if below wall
     .endm
@@ -571,8 +580,21 @@ NMI:
     LDX #0
     STX joypad1_state
 
+CheckCeilings:
+
 ; Floor checks, check must happen top down
 CheckFloors:
+CheckScreenBottom:
+    LDA sprite_player + SPRITE_Y
+    CMP #215
+    BCC CheckFloor      ; If player is below #223 they are not touching the bottom
+    LDA #215
+    STA sprite_player + SPRITE_Y
+    LDA #1
+    STA TOUCHING_GROUND
+    JMP CheckWalls
+
+CheckFloor:   
     FloorCollisionCheck #63, #97, #127, CheckFloor1
     LDA #1
     STA TOUCHING_GROUND             ; Set touching ground to true
@@ -585,14 +607,8 @@ CheckFloor1:
     JMP CheckWalls
 
 CheckFloor2:
-    FloorCollisionCheck #143, #81, #175, CheckScreenBottom
+    FloorCollisionCheck #143, #81, #175, CheckWalls
     LDA #1
-    STA TOUCHING_GROUND             ; Set touching ground to true
-    JMP CheckWalls
-
-CheckScreenBottom:
-    ; Collision with bottom
-    FloorCollisionCheck #223, #15, #240, CheckWalls
     STA TOUCHING_GROUND             ; Set touching ground to true
     JMP CheckWalls
 
@@ -611,6 +627,7 @@ XCol1:
     BCC XCol2                           ; If #17 < sprite_player + SPRITE_X < #72, it is touching no walls
     CMP #80
     BCS XCol2                                                       ; If greater than 80, try next column
+    ; LEFT MOST WALL ATTATCHED TO FLOOR (LEFT SIDE)
     CheckVerticalCollision #144, #255, XCol3                        ; If player isn't in range of wall, stop checking wall collisions
     PlayerOnWall WALL_JUMP_LEFT, #72                                ; Player is touching right wall
 XCol2:
@@ -618,16 +635,19 @@ XCol2:
     BCC XCol3                           ; If #80 < sprite_player + SPRITE_X < #88, it is touching no walls
     CMP #97
     BCS XCol3                                                       ; If greater than 97, try next column
-    CheckVerticalCollision #160, #255, CheckOtherWall               ; If player isn't in range of wall, check other wall
-    PlayerOnWall WALL_JUMP_RIGHT, #96                               ; Player is touching left wall
+    ; HORIZONTAL HOVERING WALL (LEFT SIDE)
+    CheckVerticalCollision #64, #80, CheckOtherWall                 ; If player isn't in range of uppermost wall, check lower wall
+    PlayerOnWall WALL_JUMP_LEFT, #88                                ; Player is touching left wall
 CheckOtherWall:
-    CheckVerticalCollision #64, #80, XCol5                          ; If player isn't in range of wall, stop checking wall collisions
-    PlayerOnWall WALL_JUMP_LEFT, #88                                ; Player is touching right wall
+    ; LEFT MOST WALL ATTATCHED TO FLOOR (RIGHT SIDE)
+    CheckVerticalCollision #160, #255, XCol5                        ; If player isn't in range of wall, stop checking wall collisions
+    PlayerOnWall WALL_JUMP_RIGHT, #96                               ; Player is touching right wall
 XCol3:
     CMP #120
     BCC XCol5                           ; If #97 < sprite_player + SPRITE_X < #120, it is touching no walls
     CMP #129
     BCS XCol4                                                       ; If greater than 129, try next column
+    ; HORIZONTAL HOVERING WALL (RIGHT SIDE)
     CheckVerticalCollision #64, #80, XCol5                          ; If player isn't in range of wall, stop checking wall collisions
     PlayerOnWall WALL_JUMP_RIGHT, #128                              ; Player is touching left wall
 XCol4:
@@ -635,70 +655,30 @@ XCol4:
     BCC ColumnCollisionCheckDone        ; If #129 < sprite_player + SPRITE_X < #152, it is touching no walls
     CMP #160
     BCS XCol5                                                       ; If greater than 160, try next column
-    CheckVerticalCollision #64, #112, CheckOtherWall2               ; If player isn't in range of wall, try next wall
+    ; VERTICAL HOVERING WALL (LEFT SIDE)
+    CheckVerticalCollision #64, #112, CheckOtherWall2               ; If player isn't in range of uppermost wall, check lower wall
     PlayerOnWall WALL_JUMP_LEFT, #152                               ; Player is touching right wall
 CheckOtherWall2:
-    CheckVerticalCollision #160, #184, ColumnCollisionCheckDone     ; If player isn't in range of wall, stop checking wall collisions
+    ; DANGLING WALL (LEFT SIDE)
+    CheckVerticalCollision #160, #176, ColumnCollisionCheckDone     ; If player isn't in range of wall, stop checking wall collisions
     PlayerOnWall WALL_JUMP_LEFT, #152                               ; Player is touching right wall
 XCol5:
     CMP #168
     BCC ColumnCollisionCheckDone        ; If #160 < sprite_player + SPRITE_X < #168, it is touching no walls
     CMP #177
     BCS ColumnCollisionCheckDone                                    ; If greater than 176, player is touching no walls
-    CheckVerticalCollision #64, #112, CheckOtherWall3               ; If player isn't in range of wall, try next wall
-    PlayerOnWall WALL_JUMP_RIGHT, #176                               ; Player is touching left wall
+    ; VERTICAL HOVERING WALL (RIGHT SIDE)
+    CheckVerticalCollision #64, #112, CheckOtherWall3               ; If player isn't in range of uppermost wall, check lower wall
+    PlayerOnWall WALL_JUMP_RIGHT, #176                              ; Player is touching left wall
 CheckOtherWall3:
-    CheckVerticalCollision #144, #184, ColumnCollisionCheckDone     ; If player isn't in range of wall, stop checking wall collisions
-    PlayerOnWall WALL_JUMP_RIGHT, #176                               ; Player is touching right wall
+    ; DANGLING WALL (RIGHT SIDE)
+    CheckVerticalCollision #144, #176, ColumnCollisionCheckDone     ; If player isn't in range of wall, stop checking wall collisions
+    PlayerOnWall WALL_JUMP_RIGHT, #176                              ; Player is touching right wall
 
 
 
 ColumnCollisionCheckDone:
     JMP ReadController
-
-
-
-; CheckCeilings:
-
-
-; ; Check goes from left to right
-; CheckLeftWalls:
-
-; ; Parameters: Wall_X_Right, Wall_Y_Top, Wall_Y_Bottom, Next_Collision_Check, Break_Out_Label
-
-; CheckScreenLeft:
-;     LeftWallCollisionCheck #16, #15, #240, CheckLeftWall1, StopHorizontalMomentum
-
-; CheckLeftWall1:
-;     LeftWallCollisionCheck #96, #176, #240, CheckLeftWall2, StopHorizontalMomentum
-
-; CheckLeftWall2:
-;     LeftWallCollisionCheck #128, #64, #80, CheckLeftWall3, StopHorizontalMomentum
-
-; CheckLeftWall3:
-;     LeftWallCollisionCheck #176, #64, #112, CheckLeftWall4, StopHorizontalMomentum
-
-; CheckLeftWall4:
-;     LeftWallCollisionCheck #176, #144, #184, ReadController, StopHorizontalMomentum
-
-; ; Check goes from right to left
-; ; CheckRightWalls:
-
-; CheckScreenRight:
-;     RightWallCollisionCheck #240, #15, #240, CheckRightWall1, StopHorizontalMomentum
-
-; CheckRightWall1:
-;     RightWallCollisionCheck #160, #15, #140, CheckRightWall2, StopHorizontalMomentum
-    
-; CheckRightWall2:
-;     LeftWallCollisionCheck #176, #64, #112, CheckRightWall3, StopHorizontalMomentum
-    
-; CheckRightWall3:
-;     LeftWallCollisionCheck #128, #80, #96, CheckRightWall4, StopHorizontalMomentum
-
-; CheckRightWall4:
-;     LeftWallCollisionCheck #96, #176, #240, ReadController, StopHorizontalMomentum
-
 
 StopHorizontalMomentum:
     LDA #0                          
@@ -1043,17 +1023,17 @@ nametable:
     ;   Below Key: Top left tile location relative to each side.
     ;   1L 15R    |3L 13R    |5L 11R    |7L 9R     |9L 7R     |11L 5R    |13L       |15L
 attribute:
-    .db %10000000, %10000000, %10000000, %10000000, %10000000, %10000000, %10000000, %00000000  ; Row 1 & 2
-    .db %10000000, %10000010, %10000010, %10000010, %10000010, %10000010, %10000010, %00000010  ; Row 3 & 4
-    .db %10000000, %10000010, %10000010, %10000010, %10000010, %10000010, %10000010, %00000010  ; Row 5 & 6
-    .db %10000000, %10000010, %10000010, %10000010, %10000010, %10000010, %10000010, %00000010  ; Row 7 & 8
-    .db %10000000, %10000010, %00000010, %00000010, %00000010, %10000010, %10000010, %00000010  ; Row 9 & 10
-    .db %10000000, %10000010, %00000010, %10000010, %10000010, %10000000, %10000010, %00000010  ; Row 11 & 12
-    .db %10000000, %10000010, %00000010, %10000010, %10000010, %10000010, %10000010, %00000010  ; Row 13 & 14
-    .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000  ; Row 15
+    .db %10010101, %10000101, %10000101, %10000101, %10000101, %10000101, %10000101, %01000101  ; Row 1 & 2
+    .db %10010001, %10000010, %10000010, %10000010, %10000010, %10000010, %10000010, %01000110  ; Row 3 & 4
+    .db %10010001, %10000010, %10000010, %10000010, %10000010, %10000010, %10000010, %01000110  ; Row 5 & 6
+    .db %10010001, %10000010, %10000010, %10000010, %10000010, %10000010, %10000010, %01000110  ; Row 7 & 8
+    .db %10010001, %10000010, %00000010, %00000010, %00000010, %10000010, %10000010, %01000110  ; Row 9 & 10
+    .db %10010001, %10000010, %01000110, %10000010, %10000010, %10000000, %10000010, %01000110  ; Row 11 & 12
+    .db %10010001, %10000010, %01000110, %10000010, %10000010, %10000010, %10000010, %01000110  ; Row 13 & 14
+    .db %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101  ; Row 15
 
 paletteData:
-    .db $00,$10,$20,$30,$0F,$33,$0F,$33,$1C,$0F,$33,$33,$1C,$0F,$33,$30  ; Background palette data
+    .db $00,$10,$20,$30,$1C,$26,$15,$36,$1C,$0F,$33,$33,$1C,$0F,$33,$30  ; Background palette data
     .db $1C,$05,$0D,$39,$1C,$26,$15,$36,$08,$09,$10,$11,$1C,$05,$0D,$39  ; Sprite palette data
 
 ; ---------------------------------------------------------------------------
