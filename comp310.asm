@@ -50,6 +50,7 @@ score_1                 .rs 1
 score_10                .rs 1
 player_right_speed      .rs 2 ; Subpixels per frame -- 16 bits
 player_left_speed       .rs 2 ; Subpixels per frame -- 16 bits
+gravity                 .rs 2 ; Subpixels per frame ^ 2
 checking_bools          .rs 1 ; is_running, TOUCHING_GROUND, WALL_JUMP_RIGHT, WALL_JUMP_LEFT
 
 IS_RUNNING      = %10000000
@@ -59,7 +60,6 @@ WALL_JUMP_LEFT  = %00010000
 
 collision_location      .rs 1 ; 
 running_sprite_number   .rs 1 ; Stores point of run animation
-
 
     .rsset $0200
 sprite_player               .rs 4
@@ -74,7 +74,6 @@ SPRITE_TILE        .rs 1
 SPRITE_ATTRIB      .rs 1
 SPRITE_X           .rs 1
 
-GRAVITY             = 16            ; Subpixels per frame ^ 2
 JUMP_SPEED          = -2 * 256      ; Subpixels per frame
 RUN_SPEED           = 4 * 256       ; Subpixels per frame
 RUN_ACC             = 8
@@ -648,8 +647,8 @@ XCol3:
     CMP #129
     BCS XCol4                                                       ; If greater than 129, try next column
     ; ; HORIZONTAL HOVERING WALL (RIGHT SIDE)
-    ; CheckVerticalCollision #64, #80, XCol5                          ; If player isn't in range of wall, stop checking wall collisions
-    ; PlayerOnWall WALL_JUMP_RIGHT, #128                              ; Player is touching left wall
+    CheckVerticalCollision #64, #80, JumpToCollisionEnd             ; If player isn't in range of wall, stop checking wall collisions
+    PlayerOnWall WALL_JUMP_RIGHT, #128                              ; Player is touching left wall
 JumpToCollisionEnd:
     ; Needed to branch to end of collisions
     JMP ColumnCollisionCheckDone
@@ -899,18 +898,26 @@ NoCollisionWithBandage:
     JMP ApplyMomentumRight
 
 CalculateFall:
-    ; Check if speed is greater than max speed
-    ;LDA MAX_SPEED
-    ;CMP player_vertical_speed
-    ;BCC ApplyGravity
-
+    LDA #16
+    STA gravity     ; Default gravity to 16
+CheckFallRightWall:
+    LDA WALL_JUMP_LEFT
+    BEQ CheckFallLeftWall
+    LDA #5
+    STA gravity     ; If on wall slow gravity
+CheckFallLeftWall:
+    LDA WALL_JUMP_RIGHT
+    BEQ IncrementFallSpeed
+    LDA #5
+    STA gravity     ; If on wall slow gravity
+IncrementFallSpeed:    
     ; Increment player speed
     LDA player_vertical_speed    ; Low 8 bits
     CLC
-    ADC #LOW(GRAVITY)
+    ADC gravity
     STA player_vertical_speed
     LDA player_vertical_speed + 1 ; High 8 bits
-    ADC #HIGH(GRAVITY)   ; Don't clear carry flag
+    ADC gravity + 1   ; Don't clear carry flag
     STA player_vertical_speed + 1
 ApplyGravity:
     ; Apply fall to player
