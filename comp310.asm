@@ -75,7 +75,7 @@ SPRITE_ATTRIB      .rs 1
 SPRITE_X           .rs 1
 
 GRAVITY             = 16            ; Subpixels per frame ^ 2
-JUMP_SPEED          = -3 * 256      ; Subpixels per frame
+JUMP_SPEED          = -2 * 256      ; Subpixels per frame
 RUN_SPEED           = 4 * 256       ; Subpixels per frame
 RUN_ACC             = 8
 MAX_SPEED           = 16
@@ -650,9 +650,6 @@ XCol5:
 CheckOtherWall3:
     CheckVerticalCollision #144, #184, ColumnCollisionCheckDone     ; If player isn't in range of wall, stop checking wall collisions
     PlayerOnWall WALL_JUMP_RIGHT, #176                               ; Player is touching right wall
-XCol6:
-XCol7:
-XCol8:
 
 
 
