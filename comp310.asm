@@ -225,14 +225,14 @@ InitPlayer:
 InitSpikes:
     LDX #0
     ; InitSpikesLoop:
-    LDA #140     ; Y position
+    LDA #135     ; Y position
     STA sprite_spike + SPRITE_Y, X
     LDA #1      ; Tile number
     STA sprite_spike + SPRITE_TILE, X
-    LDA #0      ; Attributes
+    LDA #2      ; Attributes
     STA sprite_spike + SPRITE_ATTRIB, X
     TXA
-    LDA #140 + NUM_SPIKES * 4     ; X position
+    LDA #144     ; X position
     STA sprite_spike + SPRITE_X, X
     ; ; Increment X register by 4
     ; TXA
@@ -624,7 +624,7 @@ ScreenLeft:
     PlayerOnWall WALL_JUMP_RIGHT, #16   ; Player is touching screen left
 XCol1:
     CMP #72
-    BCC XCol2                           ; If #17 < sprite_player + SPRITE_X < #72, it is touching no walls
+    BCC JumpToCollisionEnd              ; If #17 < sprite_player + SPRITE_X < #72, it is touching no walls
     CMP #80
     BCS XCol2                                                       ; If greater than 80, try next column
     ; LEFT MOST WALL ATTATCHED TO FLOOR (LEFT SIDE)
@@ -632,7 +632,7 @@ XCol1:
     PlayerOnWall WALL_JUMP_LEFT, #72                                ; Player is touching right wall
 XCol2:
     CMP #88
-    BCC XCol3                           ; If #80 < sprite_player + SPRITE_X < #88, it is touching no walls
+    BCC JumpToCollisionEnd              ; If #80 < sprite_player + SPRITE_X < #88, it is touching no walls
     CMP #97
     BCS XCol3                                                       ; If greater than 97, try next column
     ; HORIZONTAL HOVERING WALL (LEFT SIDE)
@@ -644,12 +644,15 @@ CheckOtherWall:
     PlayerOnWall WALL_JUMP_RIGHT, #96                               ; Player is touching right wall
 XCol3:
     CMP #120
-    BCC XCol5                           ; If #97 < sprite_player + SPRITE_X < #120, it is touching no walls
+    BCC JumpToCollisionEnd              ; If #97 < sprite_player + SPRITE_X < #120, it is touching no walls
     CMP #129
     BCS XCol4                                                       ; If greater than 129, try next column
-    ; HORIZONTAL HOVERING WALL (RIGHT SIDE)
-    CheckVerticalCollision #64, #80, XCol5                          ; If player isn't in range of wall, stop checking wall collisions
-    PlayerOnWall WALL_JUMP_RIGHT, #128                              ; Player is touching left wall
+    ; ; HORIZONTAL HOVERING WALL (RIGHT SIDE)
+    ; CheckVerticalCollision #64, #80, XCol5                          ; If player isn't in range of wall, stop checking wall collisions
+    ; PlayerOnWall WALL_JUMP_RIGHT, #128                              ; Player is touching left wall
+JumpToCollisionEnd:
+    ; Needed to branch to end of collisions
+    JMP ColumnCollisionCheckDone
 XCol4:
     CMP #152
     BCC ColumnCollisionCheckDone        ; If #129 < sprite_player + SPRITE_X < #152, it is touching no walls
@@ -807,6 +810,8 @@ CheckSpikeCollision:
 
 ; Handle collision
 SpikeHit:
+    LDA #2
+    STA sprite_spike + SPRITE_TILE  ; Make spikes bloody
     LDA #0                          ; Stop player run speed
     STA player_right_speed
     STA player_right_speed + 1
@@ -979,12 +984,6 @@ EndSpriteSwitching:
 
 
 ; ---------------------------------------------------------------------------
-sprites:
-    ;vert tile attr horiz
-    .db $80, $32, $00, $80   ;sprite 0
-    .db $80, $33, $00, $88   ;sprite 1
-    .db $88, $34, $00, $80   ;sprite 2
-    .db $88, $35, $00, $88   ;sprite 3
 
 nametable:
     .db $02,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$03
@@ -1008,8 +1007,8 @@ nametable:
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$02,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$03,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$14,$13,$13,$13,$13,$13,$13,$13,$13,$15,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
-    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$04,$05,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
+    .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
     .db $10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$10,$11
@@ -1025,16 +1024,16 @@ nametable:
 attribute:
     .db %10010101, %10000101, %10000101, %10000101, %10000101, %10000101, %10000101, %01000101  ; Row 1 & 2
     .db %10010001, %10000010, %10000010, %10000010, %10000010, %10000010, %10000010, %01000110  ; Row 3 & 4
-    .db %10010001, %10000010, %10000010, %10000010, %10000010, %10000010, %10000010, %01000110  ; Row 5 & 6
-    .db %10010001, %10000010, %10000010, %10000010, %10000010, %10000010, %10000010, %01000110  ; Row 7 & 8
-    .db %10010001, %10000010, %00000010, %00000010, %00000010, %10000010, %10000010, %01000110  ; Row 9 & 10
-    .db %10010001, %10000010, %01000110, %10000010, %10000010, %10000000, %10000010, %01000110  ; Row 11 & 12
+    .db %10010001, %10000010, %10000010, %10000101, %10000010, %10010001, %10000010, %01000110  ; Row 5 & 6
+    .db %10010001, %10000010, %10000010, %10000010, %10000010, %10000001, %10000010, %01000110  ; Row 7 & 8
+    .db %10010001, %10000010, %01000010, %01010010, %01010010, %10010010, %10000010, %01000110  ; Row 9 & 10
+    .db %10010001, %10000010, %01000110, %10000010, %10000010, %10000001, %10000010, %01000110  ; Row 11 & 12
     .db %10010001, %10000010, %01000110, %10000010, %10000010, %10000010, %10000010, %01000110  ; Row 13 & 14
     .db %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101  ; Row 15
 
 paletteData:
     .db $00,$10,$20,$30,$1C,$26,$15,$36,$1C,$0F,$33,$33,$1C,$0F,$33,$30  ; Background palette data
-    .db $1C,$05,$0D,$39,$1C,$26,$15,$36,$08,$09,$10,$11,$1C,$05,$0D,$39  ; Sprite palette data
+    .db $1C,$05,$0D,$39,$1C,$26,$15,$36,$1C,$05,$1D,$10,$1C,$05,$0D,$39  ; Sprite palette data
 
 ; ---------------------------------------------------------------------------
 
