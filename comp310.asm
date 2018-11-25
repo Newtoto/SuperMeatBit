@@ -838,9 +838,11 @@ StopRightMomentum
     STA player_right_speed + 1    
 KeepMomentum:
 
-CheckSpikeCollision:
+CheckSpikeCollisions:
 ; Check collision with spikes
-    CheckForPlayerCollision sprite_spike + SPRITE_X, sprite_spike + SPRITE_Y, NoCollisionWithSpike, SpikeHit
+    CheckForPlayerCollision sprite_spike + SPRITE_X, sprite_spike + SPRITE_Y, CheckSpike2, SpikeHit
+CheckSpike2:
+    CheckForPlayerCollision sprite_spike + SPRITE_X + 4, sprite_spike + SPRITE_Y + 4, NoCollisionWithSpike, SpikeHit
 
 ; Handle collision
 SpikeHit:
