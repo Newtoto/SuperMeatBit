@@ -32,7 +32,6 @@ BUTTON_RIGHT  = %00000001
 
 SPIKE_HITBOX_WIDTH   = 8
 SPIKE_HITBOX_HEIGHT  = 8
-NUM_BANDAGES = 1
 
 PLAYER__WIDTH   = 8
 PLAYER__HEIGHT  = 8
@@ -45,28 +44,28 @@ nametable_address       .rs 2
 player_vertical_speed   .rs 2 ; Subpixels per frame -- 16 bits
 player_position_sub_y   .rs 1
 player_position_sub_x   .rs 1
-score_1                 .rs 1
-score_10                .rs 1
 player_right_speed      .rs 2 ; Subpixels per frame -- 16 bits
 player_left_speed       .rs 2 ; Subpixels per frame -- 16 bits
 gravity                 .rs 2 ; Subpixels per frame ^ 2
 current_spike           .rs 1
-checking_bools          .rs 1 ; is_running, TOUCHING_GROUND, WALL_JUMP_RIGHT, WALL_JUMP_LEFT
-
-IS_RUNNING      = %10000000
-TOUCHING_GROUND = %01000000
-WALL_JUMP_RIGHT = %00100000
-WALL_JUMP_LEFT  = %00010000
-
+is_running              .rs 1
+touching_ground         .rs 1
+wall_jump_right         .rs 1
+wall_jump_left          .rs 1
+bandages_collected      .rs 1
 collision_location      .rs 1 ; 
 running_sprite_number   .rs 1 ; Stores point of run animation
+tickCounter             .rs 1
+timer_seconds_units     .rs 1
+timer_seconds_tens      .rs 1
+
 
     .rsset $0200
 sprite_player               .rs 4
 sprite_spike                .rs 40
 sprite_bandage              .rs 24
-sprite_score_10             .rs 4
-sprite_score_1              .rs 4
+sprite_timer_tens           .rs 4
+sprite_timer_units          .rs 4
 
     .rsset $0000
 SPRITE_Y           .rs 1
@@ -400,28 +399,28 @@ InitCollectables:
     LDA #BANDAGE_5_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
 
-InitScore:
+InitTimer:
     LDA #$0
-    STA score_1    ; Set player score to 0
-    STA score_10
+    STA timer_seconds_units    ; Set timer to 0
+    STA timer_seconds_tens
 
     LDA #8      ; Y position
-    STA sprite_score_10 + SPRITE_Y
+    STA sprite_timer_tens + SPRITE_Y
     LDA #48      ; Tile number
-    STA sprite_score_10 + SPRITE_TILE
+    STA sprite_timer_tens + SPRITE_TILE
     LDA #0      ; Attributes
-    STA sprite_score_10 + SPRITE_ATTRIB
+    STA sprite_timer_tens + SPRITE_ATTRIB
     LDA #16    ; X position
-    STA sprite_score_10 + SPRITE_X
+    STA sprite_timer_tens + SPRITE_X
 
     LDA #8      ; Y position
-    STA sprite_score_1 + SPRITE_Y
+    STA sprite_timer_units + SPRITE_Y
     LDA #48      ; Tile number
-    STA sprite_score_1 + SPRITE_TILE
+    STA sprite_timer_units + SPRITE_TILE
     LDA #0      ; Attributes
-    STA sprite_score_1 + SPRITE_ATTRIB
+    STA sprite_timer_units + SPRITE_ATTRIB
     LDA #24    ; X position
-    STA sprite_score_1 + SPRITE_X
+    STA sprite_timer_units + SPRITE_X
 
 ; ---------------------------------------------------------------------------
 
@@ -536,21 +535,11 @@ ChangeSpriteCheck .macro ; parameters: check_value, dont_change_label, tile_if_c
     JMP \5  ; Jump to skip other sprite checks
     .endm
 
-; Displays the score in sprites
-DisplayScore .macro
-    LDA score_1
-    ADC #48      ; Tile number
-    STA sprite_score_1 + SPRITE_TILE
-    LDA score_10
-    ADC #48
-    STA sprite_score_10 + SPRITE_TILE
-    .endm
-
-; Moves everything back to the start and resets score, keeping blood on spikes
+; Moves everything back to the start and resets timer, keeping blood on spikes
 ResetPlayer .macro
     LDA #0
-    STA score_1                     ; Reset score units
-    STA score_10                    ; Reset score tens
+    STA timer_seconds_units                     ; Reset timer units
+    STA timer_seconds_tens                    ; Reset timer tens
     ; Reset player momentum
     STA player_right_speed          ; Stop player run speed
     STA player_right_speed + 1
@@ -563,15 +552,17 @@ ResetPlayer .macro
     STA sprite_player + SPRITE_Y
     LDA #PLAYER_START_POSITION_X    ; X position
     STA sprite_player + SPRITE_X
-    ; Reset score sprites
+    ; Reset timer
     LDA #48
-    STA sprite_score_1 + SPRITE_TILE
-    STA sprite_score_10 + SPRITE_TILE
+    STA sprite_timer_units + SPRITE_TILE
+    STA sprite_timer_tens + SPRITE_TILE
     ResetBandages
     .endm
 
 ; Moves bandages to start position
 ResetBandages .macro
+    LDA #0
+    STA bandages_collected  ; Reset number of bandages collected
     ; BANDAGE 1
     LDX #0
     LDA #BANDAGE_START_Y     ; Y position
@@ -698,9 +689,9 @@ NMI:
     STA JOYPAD1
     LDA #0
     STA JOYPAD1
-    STA TOUCHING_GROUND  ; Default ground touching to false
-    STA WALL_JUMP_RIGHT  ; Default wall jumping to false
-    STA WALL_JUMP_LEFT
+    STA touching_ground  ; Default ground touching to false
+    STA wall_jump_right  ; Default wall jumping to false
+    STA wall_jump_left
     
     ; Read joypad state
     LDX #0
@@ -744,25 +735,25 @@ CheckScreenBottom:
     LDA #215
     STA sprite_player + SPRITE_Y
     LDA #1
-    STA TOUCHING_GROUND
+    STA touching_ground
     JMP CheckWalls
 
 CheckFloor:   
     FloorCollisionCheck #63, #97, #127, CheckFloor1
     LDA #1
-    STA TOUCHING_GROUND             ; Set touching ground to true
+    STA touching_ground             ; Set touching ground to true
     JMP CheckWalls
 
 CheckFloor1:
     FloorCollisionCheck #63, #161, #175, CheckFloor2
     LDA #1
-    STA TOUCHING_GROUND             ; Set touching ground to true
+    STA touching_ground             ; Set touching ground to true
     JMP CheckWalls
 
 CheckFloor2:
     FloorCollisionCheck #143, #81, #175, CheckWalls
     LDA #1
-    STA TOUCHING_GROUND             ; Set touching ground to true
+    STA touching_ground             ; Set touching ground to true
     JMP CheckWalls
 
 CheckWalls:
@@ -770,11 +761,11 @@ CheckWalls:
 ScreenRight:
     CMP #232
     BCC ScreenLeft                      ; If less than 232, try rest of collisions
-    PlayerOnWall WALL_JUMP_LEFT, #232   ; Player is touching screen right
+    PlayerOnWall wall_jump_left, #232   ; Player is touching screen right
 ScreenLeft:
     CMP #17
     BCS XCol1                           ; If greater than 17, try next column 
-    PlayerOnWall WALL_JUMP_RIGHT, #16   ; Player is touching screen left
+    PlayerOnWall wall_jump_right, #16   ; Player is touching screen left
 XCol1:
     CMP #72
     BCC JumpToCollisionEnd              ; If #17 < sprite_player + SPRITE_X < #72, it is touching no walls
@@ -782,7 +773,7 @@ XCol1:
     BCS XCol2                                                       ; If greater than 80, try next column
     ; LEFT MOST WALL ATTATCHED TO FLOOR (LEFT SIDE)
     CheckVerticalCollision #144, #255, XCol3                        ; If player isn't in range of wall, stop checking wall collisions
-    PlayerOnWall WALL_JUMP_LEFT, #72                                ; Player is touching right wall
+    PlayerOnWall wall_jump_left, #72                                ; Player is touching right wall
 XCol2:
     CMP #88
     BCC JumpToCollisionEnd              ; If #80 < sprite_player + SPRITE_X < #88, it is touching no walls
@@ -790,11 +781,11 @@ XCol2:
     BCS XCol3                                                       ; If greater than 97, try next column
     ; HORIZONTAL HOVERING WALL (LEFT SIDE)
     CheckVerticalCollision #64, #80, CheckOtherWall                 ; If player isn't in range of uppermost wall, check lower wall
-    PlayerOnWall WALL_JUMP_LEFT, #88                                ; Player is touching left wall
+    PlayerOnWall wall_jump_left, #88                                ; Player is touching left wall
 CheckOtherWall:
     ; LEFT MOST WALL ATTATCHED TO FLOOR (RIGHT SIDE)
     CheckVerticalCollision #160, #255, XCol5                        ; If player isn't in range of wall, stop checking wall collisions
-    PlayerOnWall WALL_JUMP_RIGHT, #96                               ; Player is touching right wall
+    PlayerOnWall wall_jump_right, #96                               ; Player is touching right wall
 XCol3:
     CMP #120
     BCC JumpToCollisionEnd              ; If #97 < sprite_player + SPRITE_X < #120, it is touching no walls
@@ -802,7 +793,7 @@ XCol3:
     BCS XCol4                                                       ; If greater than 129, try next column
     ; ; HORIZONTAL HOVERING WALL (RIGHT SIDE)
     CheckVerticalCollision #64, #80, JumpToCollisionEnd             ; If player isn't in range of wall, stop checking wall collisions
-    PlayerOnWall WALL_JUMP_RIGHT, #128                              ; Player is touching left wall
+    PlayerOnWall wall_jump_right, #128                              ; Player is touching left wall
 JumpToCollisionEnd:
     ; Needed to branch to end of collisions
     JMP ColumnCollisionCheckDone
@@ -813,11 +804,11 @@ XCol4:
     BCS XCol5                                                       ; If greater than 160, try next column
     ; VERTICAL HOVERING WALL (LEFT SIDE)
     CheckVerticalCollision #64, #112, CheckOtherWall2               ; If player isn't in range of uppermost wall, check lower wall
-    PlayerOnWall WALL_JUMP_LEFT, #152                               ; Player is touching right wall
+    PlayerOnWall wall_jump_left, #152                               ; Player is touching right wall
 CheckOtherWall2:
     ; DANGLING WALL (LEFT SIDE)
     CheckVerticalCollision #160, #176, ColumnCollisionCheckDone     ; If player isn't in range of wall, stop checking wall collisions
-    PlayerOnWall WALL_JUMP_LEFT, #152                               ; Player is touching right wall
+    PlayerOnWall wall_jump_left, #152                               ; Player is touching right wall
 XCol5:
     CMP #168
     BCC ColumnCollisionCheckDone        ; If #160 < sprite_player + SPRITE_X < #168, it is touching no walls
@@ -825,11 +816,11 @@ XCol5:
     BCS ColumnCollisionCheckDone                                    ; If greater than 176, player is touching no walls
     ; VERTICAL HOVERING WALL (RIGHT SIDE)
     CheckVerticalCollision #64, #112, CheckOtherWall3               ; If player isn't in range of uppermost wall, check lower wall
-    PlayerOnWall WALL_JUMP_RIGHT, #176                              ; Player is touching left wall
+    PlayerOnWall wall_jump_right, #176                              ; Player is touching left wall
 CheckOtherWall3:
     ; DANGLING WALL (RIGHT SIDE)
     CheckVerticalCollision #144, #176, ColumnCollisionCheckDone     ; If player isn't in range of wall, stop checking wall collisions
-    PlayerOnWall WALL_JUMP_RIGHT, #176                              ; Player is touching right wall
+    PlayerOnWall wall_jump_right, #176                              ; Player is touching right wall
 
 
 
@@ -855,14 +846,14 @@ ReadController:
     BNE ReadController
 
     LDA #0
-    STA IS_RUNNING      ; Default is running to false
+    STA is_running      ; Default is running to false
 
     ; React to Right button
     LDA joypad1_state
     AND #BUTTON_RIGHT
     BEQ ReadRight_Done       ; if ((JOYPAD1 & 1) != 0) {
     LDA #1 
-    STA IS_RUNNING           ; Set is running bool to true
+    STA is_running           ; Set is running bool to true
     CalculateSpeed player_right_speed, RUN_ACC
 
 ReadRight_Done:         ; }
@@ -884,7 +875,7 @@ ReadDown_Done:         ; }
     AND #BUTTON_LEFT
     BEQ ReadLeft_Done  ; if ((JOYPAD1 & 1) != 0) {
     LDA #1
-    STA IS_RUNNING      ; Set is running bool to true
+    STA is_running      ; Set is running bool to true
     CalculateSpeed player_left_speed, RUN_ACC
 
 
@@ -901,11 +892,11 @@ ReadUp_Done:         ; }
     LDA joypad1_state
     AND #BUTTON_A
     BEQ ReadA_Done
-    LDA TOUCHING_GROUND
+    LDA touching_ground
     BNE Jump                ; Allow jump if touching ground is true
-    LDA WALL_JUMP_RIGHT     
+    LDA wall_jump_right     
     BNE WallJumpRight       ; Allow wall jumping right
-    LDA WALL_JUMP_LEFT     
+    LDA wall_jump_left     
     BNE WallJumpLeft        ; Allow wall jumping left
     JMP ReadA_Done          ; Don't jump if not touching a surface
 WallJumpRight:
@@ -933,7 +924,7 @@ ReadA_Done:
     AND #BUTTON_B
     BNE Reset     ; Reversed check because branch address is out of range
     JMP ReadB_Done      
-    ; Reset score, player location and bandages
+    ; Reset timer, player location and bandages
 Reset:
     ResetPlayer
     ResetBandages
@@ -947,9 +938,9 @@ ReadB_Done:
 
     LDX #0
 
-    LDA IS_RUNNING
+    LDA is_running
     BNE KeepMomentum        ; Keep momentum if running
-    LDA TOUCHING_GROUND
+    LDA touching_ground
     BEQ KeepMomentum        ; Keep momentum if not touching ground
 StopLeftMomentum:
     LDA #0
@@ -1042,32 +1033,27 @@ CheckBandage5:
     CheckForPlayerCollision sprite_bandage + SPRITE_X + 20, sprite_bandage + SPRITE_Y + 20, NoCollisionWithBandage, BandageHit
 
 BandageHit:
-    ; Delete bandage + add to score?
+    ; Hide and move bandage
+    CLC         
     LDA #0
-    STA sprite_bandage + SPRITE_X, X
-    STA sprite_bandage + SPRITE_Y, X
-    LDA score_1     ; Increment score units
-    ;ADC #1
-    STA score_1
-    CMP #10         ; See if score units is greater than 10
-    BCC ShowScore
-    SBC #10         ; Subtract 10 from score units
-    STA score_1
-    LDA score_10    ; Add 1 to score tens
-    CLC
+    STA sprite_bandage + SPRITE_X, X    ; Move sprite into left border
+    LDA #$0f
+    STA sprite_bandage + SPRITE_TILE, X     ; Use invisible sprite
+    LDA bandages_collected
     ADC #1
-    STA score_10
-ShowScore:
-    LDA score_1
-    ADC #48      ; Tile number
-    STA sprite_score_1 + SPRITE_TILE
-    LDA score_10
-    ADC #48
-    STA sprite_score_10 + SPRITE_TILE
+    STA bandages_collected
+    CMP #6
+    BCS WinState
+    JMP VerticalMomentum
 
 NoCollisionWithBandage:
+    JMP VerticalMomentum
 
-    LDA TOUCHING_GROUND
+WinState:
+    ResetBandages
+
+VerticalMomentum:
+    LDA touching_ground
     BEQ CalculateFall    ; Skip breaking fall if not touching ground
     LDA player_vertical_speed + 1
     CMP #20              ; Check if player speed is negative (jumping)
@@ -1081,12 +1067,12 @@ CalculateFall:
     LDA #16
     STA gravity     ; Default gravity to 16
 CheckFallRightWall:
-    LDA WALL_JUMP_LEFT
+    LDA wall_jump_left
     BEQ CheckFallLeftWall
     LDA #5
     STA gravity     ; If on wall slow gravity
 CheckFallLeftWall:
-    LDA WALL_JUMP_RIGHT
+    LDA wall_jump_right
     BEQ IncrementFallSpeed
     LDA #5
     STA gravity     ; If on wall slow gravity
@@ -1133,11 +1119,11 @@ ApplyDrag:
 
 ; Sprite switcher/animator
 CheckLeftWall:
-    ChangeSpriteCheck WALL_JUMP_LEFT, CheckRightWall, #34, sprite_player + SPRITE_TILE, EndSpriteSwitching
+    ChangeSpriteCheck wall_jump_left, CheckRightWall, #34, sprite_player + SPRITE_TILE, EndSpriteSwitching
 CheckRightWall:
-    ChangeSpriteCheck WALL_JUMP_RIGHT, RunningCheck, #33, sprite_player + SPRITE_TILE, EndSpriteSwitching
+    ChangeSpriteCheck wall_jump_right, RunningCheck, #33, sprite_player + SPRITE_TILE, EndSpriteSwitching
 RunningCheck:
-    LDA IS_RUNNING
+    LDA is_running
     BEQ Idle
     LDA running_sprite_number   ; Get point in run animation
     CLC
@@ -1160,9 +1146,38 @@ Idle:
     LDA #16      ; Tile number
     STA sprite_player + SPRITE_TILE
 EndSpriteSwitching:
-    ;LDA score
-    ;ADC score
-    ;STA sprite_score + SPRITE_TILE
+
+CountUpTimer:
+    LDA tickCounter
+    ADC #1
+    STA tickCounter
+    CMP #60
+    BCC DontIncrementTimer
+    CLC
+    LDA #0
+    STA tickCounter
+    LDA timer_seconds_units
+    ADC #1
+    STA timer_seconds_units
+    CMP #10
+    BCC ShowTimer
+    CLC
+    LDA #0
+    STA timer_seconds_units
+    LDA timer_seconds_tens
+    ADC #1
+    STA timer_seconds_tens
+ShowTimer:
+    LDA timer_seconds_units
+    ADC #48
+    STA sprite_timer_units + SPRITE_TILE
+    CLC
+    LDA timer_seconds_tens
+    ADC #48
+    STA sprite_timer_tens + SPRITE_TILE
+
+DontIncrementTimer:
+
 
     RTI         ; Return from interrupt
 
