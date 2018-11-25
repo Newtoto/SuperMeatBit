@@ -592,13 +592,29 @@ CheckCeilings:
 CheckScreenTop:
     LDA sprite_player + SPRITE_Y
     CMP #15
-    BCS CheckFloors      ; If player is above #16 they are not touching the top
+    BCS CheckCeiling      ; If player y is greater than #16 they are not touching the top
     LDA #15
     STA sprite_player + SPRITE_Y
     LDA #0
     STA player_vertical_speed
     STA player_vertical_speed + 1
     ;JMP CheckWalls
+CheckCeiling:
+    CMP #159
+    BCS CheckFloors     ; If player y is greater than #159 they are not touching the ceiling
+    CMP #151
+    BCC CheckFloors     ; If player y is less than #151 they are not touching the ceiling
+    LDA sprite_player + SPRITE_X    ; Get left side of player
+    CMP #169                        ; Compare with the right of ceiling
+    BCS CheckFloors                 ; If left of player is greater than right of ceiling , it is not touching
+    ADC #8                          ; Add player width to get right of player
+    CMP #88                         ; Compare with the left of ceiling
+    BCC CheckFloors                 ; If right of player is greater than left of ceiling it is not touching
+    LDA #159                                
+    STA sprite_player + SPRITE_Y    ; Snap player to ceiling
+    LDA #0
+    STA player_vertical_speed
+    STA player_vertical_speed + 1   ; Stop upward momentum 
 
 ; Floor checks, check must happen top down
 CheckFloors:
