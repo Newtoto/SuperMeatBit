@@ -32,11 +32,10 @@ BUTTON_RIGHT  = %00000001
 
 SPIKE_HITBOX_WIDTH   = 8
 SPIKE_HITBOX_HEIGHT  = 8
-NUM_SPIKES = 2
 NUM_BANDAGES = 1
 
-PLAYER_HITBOX_WIDTH   = 8
-PLAYER_HITBOX_HEIGHT  = 8
+PLAYER__WIDTH   = 8
+PLAYER__HEIGHT  = 8
 PLAYER_START_POSITION_X = 128
 PLAYER_START_POSITION_Y = 120
 
@@ -51,6 +50,7 @@ score_10                .rs 1
 player_right_speed      .rs 2 ; Subpixels per frame -- 16 bits
 player_left_speed       .rs 2 ; Subpixels per frame -- 16 bits
 gravity                 .rs 2 ; Subpixels per frame ^ 2
+current_spike           .rs 1
 checking_bools          .rs 1 ; is_running, TOUCHING_GROUND, WALL_JUMP_RIGHT, WALL_JUMP_LEFT
 
 IS_RUNNING      = %10000000
@@ -63,7 +63,7 @@ running_sprite_number   .rs 1 ; Stores point of run animation
 
     .rsset $0200
 sprite_player               .rs 4
-sprite_spike                .rs 8
+sprite_spike                .rs 40
 sprite_bandage              .rs 24
 sprite_score_10             .rs 4
 sprite_score_1              .rs 4
@@ -220,38 +220,121 @@ InitPlayer:
     LDA #PLAYER_START_POSITION_X    ; X position
     STA sprite_player + SPRITE_X
     
-; Write sprite data for spikes
+; Write sprite data for spikes, starting from top down from left to right
 InitSpikes:
-    ; InitSpikesLoop:
-    LDA #135     ; Y position
-    STA sprite_spike + SPRITE_Y
-    LDA #1      ; Tile number
-    STA sprite_spike + SPRITE_TILE
+    ; SPIKE 1
+    LDX #0
+    LDA #33     ; Y position
+    STA sprite_spike + SPRITE_Y, X
+    LDA #5      ; Tile number
+    STA sprite_spike + SPRITE_TILE, X
     LDA #2      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB
-    TXA
-    LDA #164     ; X position
-    STA sprite_spike + SPRITE_X
+    STA sprite_spike + SPRITE_ATTRIB, X
+    LDA #232     ; X position
+    STA sprite_spike + SPRITE_X, X
 
+    ; SPIKE 2
+    LDX #4
+    LDA #67     ; Y position
+    STA sprite_spike + SPRITE_Y, X
+    LDA #5      ; Tile number
+    STA sprite_spike + SPRITE_TILE, X
+    LDA #2      ; Attributes
+    STA sprite_spike + SPRITE_ATTRIB, X
+    LDA #88     ; X position
+    STA sprite_spike + SPRITE_X, X
+
+    ; SPIKE 3
+    LDX #8
+    LDA #79     ; Y position
+    STA sprite_spike + SPRITE_Y, X
+    LDA #5      ; Tile number
+    STA sprite_spike + SPRITE_TILE, X
+    LDA #2      ; Attributes
+    STA sprite_spike + SPRITE_ATTRIB, X
+    LDA #152     ; X position
+    STA sprite_spike + SPRITE_X, X
+
+    ; SPIKE 4
+    LDX #12
+    LDA #79     ; Y position
+    STA sprite_spike + SPRITE_Y, X
+    LDA #7      ; Tile number
+    STA sprite_spike + SPRITE_TILE, X
+    LDA #2      ; Attributes
+    STA sprite_spike + SPRITE_ATTRIB, X
+    LDA #176     ; X position
+    STA sprite_spike + SPRITE_X, X
+
+    ; SPIKE 5
+    LDX #16
     LDA #111     ; Y position
-    STA sprite_spike + SPRITE_Y + 4
+    STA sprite_spike + SPRITE_Y, X
     LDA #3      ; Tile number
-    STA sprite_spike + SPRITE_TILE + 4
+    STA sprite_spike + SPRITE_TILE, X
     LDA #2      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB + 4
-    TXA
+    STA sprite_spike + SPRITE_ATTRIB, X
     LDA #164     ; X position
-    STA sprite_spike + SPRITE_X + 4
-    ; ; Increment X register by 4
-    ; TXA
-    ; CLC
-    ; ADC #4
-    ; TAX
-    ; ; See if 
-    ; CPX NUM_SPIKES * 4     ; Compare X to dec 8
-    ; BNE InitSpikesLoop
+    STA sprite_spike + SPRITE_X, X
 
+    ; SPIKE 6
+    LDX #20
+    LDA #135     ; Y position
+    STA sprite_spike + SPRITE_Y, X
+    LDA #1      ; Tile number
+    STA sprite_spike + SPRITE_TILE, X
+    LDA #2      ; Attributes
+    STA sprite_spike + SPRITE_ATTRIB, X
+    LDA #164     ; X position
+    STA sprite_spike + SPRITE_X, X
+
+    ; SPIKE 7
+    LDX #24
+    LDA #159    ; Y position
+    STA sprite_spike + SPRITE_Y, X
+    LDA #5      ; Tile number
+    STA sprite_spike + SPRITE_TILE, X
+    LDA #2      ; Attributes
+    STA sprite_spike + SPRITE_ATTRIB, X
+    LDA #72     ; X position
+    STA sprite_spike + SPRITE_X, X
+
+    ; SPIKE 8
+    LDX #28
+    LDA #179    ; Y position
+    STA sprite_spike + SPRITE_Y, X
+    LDA #7      ; Tile number
+    STA sprite_spike + SPRITE_TILE, X
+    LDA #2      ; Attributes
+    STA sprite_spike + SPRITE_ATTRIB, X
+    LDA #16     ; X position
+    STA sprite_spike + SPRITE_X, X
+
+    ; SPIKE 9
+    LDX #32
+    LDA #199    ; Y position
+    STA sprite_spike + SPRITE_Y, X
+    LDA #5      ; Tile number
+    STA sprite_spike + SPRITE_TILE, X
+    LDA #2      ; Attributes
+    STA sprite_spike + SPRITE_ATTRIB, X
+    LDA #72     ; X position
+    STA sprite_spike + SPRITE_X, X
+
+    ; SPIKE 10
+    LDX #36
+    LDA #215     ; Y position
+    STA sprite_spike + SPRITE_Y, X
+    LDA #1      ; Tile number
+    STA sprite_spike + SPRITE_TILE, X
+    LDA #2      ; Attributes
+    STA sprite_spike + SPRITE_ATTRIB, X
+    LDA #160     ; X position
+    STA sprite_spike + SPRITE_X, X
+
+; Write sprite data for collectable bandages, starting from top down from left to right
 InitCollectables:
+    ; BANDAGE 1
     LDX #0
     LDA #BANDAGE_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
@@ -261,10 +344,9 @@ InitCollectables:
     STA sprite_bandage + SPRITE_ATTRIB, X
     LDA #BANDAGE_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
-    INX
-    INX
-    INX
-    INX
+    
+    ; BANDAGE 2
+    LDX #4
     LDA #BANDAGE_1_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #0      ; Tile number
@@ -273,10 +355,9 @@ InitCollectables:
     STA sprite_bandage + SPRITE_ATTRIB, X
     LDA #BANDAGE_1_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
-    INX
-    INX
-    INX
-    INX
+    
+    ; BANDAGE 3
+    LDX #8
     LDA #BANDAGE_2_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #0      ; Tile number
@@ -285,10 +366,9 @@ InitCollectables:
     STA sprite_bandage + SPRITE_ATTRIB, X
     LDA #BANDAGE_2_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
-    INX
-    INX
-    INX
-    INX
+    
+    ; BANDAGE 4
+    LDX #12
     LDA #BANDAGE_3_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #0      ; Tile number
@@ -297,10 +377,9 @@ InitCollectables:
     STA sprite_bandage + SPRITE_ATTRIB, X
     LDA #BANDAGE_3_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
-    INX
-    INX
-    INX
-    INX
+    
+    ; BANDAGE 5
+    LDX #16
     LDA #BANDAGE_4_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #0      ; Tile number
@@ -309,10 +388,9 @@ InitCollectables:
     STA sprite_bandage + SPRITE_ATTRIB, X
     LDA #BANDAGE_4_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
-    INX
-    INX
-    INX
-    INX
+    
+    ; BANDAGE 6
+    LDX #20
     LDA #BANDAGE_5_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
     LDA #0      ; Tile number
@@ -396,7 +474,6 @@ CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_lab
 
     ; Horizontal check
     LDA sprite_player + SPRITE_X
-    SEC
     SBC #8
     CMP \1
     BCS \3  ; Not colliding if x is greater than the right side
@@ -406,7 +483,6 @@ CheckForPlayerCollision .macro ;parameters: object_x, object_y, no_collision_lab
     BCC \3  ; Not colliding if x is less than the left side
     ; Vertical check
     LDA sprite_player + SPRITE_Y
-    SEC
     SBC #8
     CMP \2
     BCS \3  ; Not colliding if y is less than the top
@@ -460,10 +536,22 @@ ChangeSpriteCheck .macro ; parameters: check_value, dont_change_label, tile_if_c
     JMP \5  ; Jump to skip other sprite checks
     .endm
 
+; Displays the score in sprites
+DisplayScore .macro
+    LDA score_1
+    ADC #48      ; Tile number
+    STA sprite_score_1 + SPRITE_TILE
+    LDA score_10
+    ADC #48
+    STA sprite_score_10 + SPRITE_TILE
+    .endm
+
+; Moves everything back to the start and resets score, keeping blood on spikes
 ResetPlayer .macro
     LDA #0
     STA score_1                     ; Reset score units
     STA score_10                    ; Reset score tens
+    ; Reset player momentum
     STA player_right_speed          ; Stop player run speed
     STA player_right_speed + 1
     STA player_left_speed
@@ -475,56 +563,83 @@ ResetPlayer .macro
     STA sprite_player + SPRITE_Y
     LDA #PLAYER_START_POSITION_X    ; X position
     STA sprite_player + SPRITE_X
+    ; Reset score sprites
+    LDA #48
+    STA sprite_score_1 + SPRITE_TILE
+    STA sprite_score_10 + SPRITE_TILE
+    ResetBandages
     .endm
 
-; ResetBandages .macro
-;     LDX #0
-;     LDA BANDAGE_START_Y
-;     STA sprite_bandage + SPRITE_Y, X
-;     LDA BANDAGE_START_X
-;     STA sprite_bandage + SPRITE_X, X
-;     INX
-;     INX
-;     INX
-;     INX
-;     LDA BANDAGE_1_START_Y
-;     STA sprite_bandage + SPRITE_Y, X
-;     LDA BANDAGE_1_START_X
-;     STA sprite_bandage + SPRITE_X, X
-;     INX
-;     INX
-;     INX
-;     INX
-;     LDA BANDAGE_2_START_Y
-;     STA sprite_bandage + SPRITE_Y, X
-;     LDA BANDAGE_2_START_X
-;     STA sprite_bandage + SPRITE_X, X
-;     INX
-;     INX
-;     INX
-;     INX
-;     LDA BANDAGE_3_START_Y
-;     STA sprite_bandage + SPRITE_Y, X
-;     LDA BANDAGE_3_START_X
-;     STA sprite_bandage + SPRITE_X, X
-;     INX
-;     INX
-;     INX
-;     INX
-;     LDA BANDAGE_4_START_Y
-;     STA sprite_bandage + SPRITE_Y, X
-;     LDA BANDAGE_4_START_X
-;     STA sprite_bandage + SPRITE_X, X
-;     INX
-;     INX
-;     INX
-;     INX
-;     LDA BANDAGE_5_START_Y
-;     STA sprite_bandage + SPRITE_Y, X
-;     LDA BANDAGE_5_START_X
-;     STA sprite_bandage + SPRITE_X, X
-;     .endm
+; Moves bandages to start position
+ResetBandages .macro
+    ; BANDAGE 1
+    LDX #0
+    LDA #BANDAGE_START_Y     ; Y position
+    STA sprite_bandage + SPRITE_Y, X
+    LDA #0      ; Tile number
+    STA sprite_bandage + SPRITE_TILE, X
+    LDA #1      ; Attributes
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    LDA #BANDAGE_START_X    ; X position
+    STA sprite_bandage + SPRITE_X, X
+    
+    ; BANDAGE 2
+    LDX #4
+    LDA #BANDAGE_1_START_Y     ; Y position
+    STA sprite_bandage + SPRITE_Y, X
+    LDA #0      ; Tile number
+    STA sprite_bandage + SPRITE_TILE, X
+    LDA #1      ; Attributes
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    LDA #BANDAGE_1_START_X    ; X position
+    STA sprite_bandage + SPRITE_X, X
+    
+    ; BANDAGE 3
+    LDX #8
+    LDA #BANDAGE_2_START_Y     ; Y position
+    STA sprite_bandage + SPRITE_Y, X
+    LDA #0      ; Tile number
+    STA sprite_bandage + SPRITE_TILE, X
+    LDA #1      ; Attributes
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    LDA #BANDAGE_2_START_X    ; X position
+    STA sprite_bandage + SPRITE_X, X
+    
+    ; BANDAGE 4
+    LDX #12
+    LDA #BANDAGE_3_START_Y     ; Y position
+    STA sprite_bandage + SPRITE_Y, X
+    LDA #0      ; Tile number
+    STA sprite_bandage + SPRITE_TILE, X
+    LDA #1      ; Attributes
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    LDA #BANDAGE_3_START_X    ; X position
+    STA sprite_bandage + SPRITE_X, X
+    
+    ; BANDAGE 5
+    LDX #16
+    LDA #BANDAGE_4_START_Y     ; Y position
+    STA sprite_bandage + SPRITE_Y, X
+    LDA #0      ; Tile number
+    STA sprite_bandage + SPRITE_TILE, X
+    LDA #1      ; Attributes
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    LDA #BANDAGE_4_START_X    ; X position
+    STA sprite_bandage + SPRITE_X, X
+    
+    ; BANDAGE 6
+    LDX #20
+    LDA #BANDAGE_5_START_Y     ; Y position
+    STA sprite_bandage + SPRITE_Y, X
+    LDA #0      ; Tile number
+    STA sprite_bandage + SPRITE_TILE, X
+    LDA #1      ; Attributes
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    LDA #BANDAGE_5_START_X    ; X position
+    STA sprite_bandage + SPRITE_X, X
+    .endm
 
+; Checks if player is touching a floor using Y position and left and right parameters
 FloorCollisionCheck .macro ; Parameters: Ground_Y_Top, Ground_X_Left, Ground_X_Right, Next_Collision_Check, Break_Out_Label
     LDA sprite_player + SPRITE_X    ; Check player left is less than the right side
     CMP \3                          
@@ -546,15 +661,17 @@ FloorCollisionCheck .macro ; Parameters: Ground_Y_Top, Ground_X_Left, Ground_X_R
     STA sprite_player + SPRITE_Y
     .endm
 
+; Checks if player is within left and right bounds
 CheckHorizontalCollision .macro ; Parameters: Wall_X_Left, Wall_X_Right, Next_Collision_Check
     LDA sprite_player + SPRITE_X    ; Check player left is greater than right of collision 
     CMP \2                          
     BCC \3                          ; Branch if to the right of collision
-    ADC #8                          ; Add 8 (player width) to get right of player
+    ADC #PLAYER__WIDTH              ; Add 8 (player width) to get right of player
     CMP \1                          ; Check player right is less than left of collision
     BCS \3                          ; Branch if to the left of collision
     .endm
 
+; Checks if player is within top and bottom bounds
 CheckVerticalCollision .macro ; Parameters: Wall_Y_Top, Wall_Y_Bottom, Next_Collision_Check
     LDA sprite_player + SPRITE_Y    ; Check player top is less than (above) bottom of wall
     CMP \2
@@ -564,6 +681,7 @@ CheckVerticalCollision .macro ; Parameters: Wall_Y_Top, Wall_Y_Bottom, Next_Coll
     BCC \3                          ; Branch if below wall
     .endm
 
+; Sets walljump and snaps player to wall
 PlayerOnWall .macro ; Parameters: WallJump, SnapToLocation
     LDA #1                          
     STA \1                          ; Allow wall jumping
@@ -588,6 +706,7 @@ NMI:
     LDX #0
     STX joypad1_state
 
+; Collision check for ceilings
 CheckCeilings:
 CheckScreenTop:
     LDA sprite_player + SPRITE_Y
@@ -607,7 +726,7 @@ CheckCeiling:
     LDA sprite_player + SPRITE_X    ; Get left side of player
     CMP #169                        ; Compare with the right of ceiling
     BCS CheckFloors                 ; If left of player is greater than right of ceiling , it is not touching
-    ADC #8                          ; Add player width to get right of player
+    ADC #PLAYER__WIDTH              ; Add player width to get right of player
     CMP #88                         ; Compare with the left of ceiling
     BCC CheckFloors                 ; If right of player is greater than left of ceiling it is not touching
     LDA #159                                
@@ -812,9 +931,12 @@ ReadA_Done:
     ; React to B button
     LDA joypad1_state
     AND #BUTTON_B
-    BEQ ReadB_Done
+    BNE Reset     ; Reversed check because branch address is out of range
+    JMP ReadB_Done      
     ; Reset score, player location and bandages
+Reset:
     ResetPlayer
+    ResetBandages
     JMP NMI
 
 ReadB_Done:
@@ -840,71 +962,92 @@ KeepMomentum:
 
 CheckSpikeCollisions:
 ; Check collision with spikes
-    CheckForPlayerCollision sprite_spike + SPRITE_X, sprite_spike + SPRITE_Y, CheckSpike2, SpikeHit
+CheckSpike1:
+    LDY #0
+    LDA #6
+    STA current_spike
+    CheckForPlayerCollision sprite_spike + SPRITE_X, Y , sprite_spike + SPRITE_Y, Y , CheckSpike2, SpikeHit
 CheckSpike2:
-    CheckForPlayerCollision sprite_spike + SPRITE_X + 4, sprite_spike + SPRITE_Y + 4, NoCollisionWithSpike, SpikeHit
+    LDY #4
+    LDA #6
+    STA current_spike
+    CheckForPlayerCollision sprite_spike + SPRITE_X, Y , sprite_spike + SPRITE_Y, Y , CheckSpike3, SpikeHit
+CheckSpike3:
+    LDY #8
+    LDA #6
+    STA current_spike
+    CheckForPlayerCollision sprite_spike + SPRITE_X, Y , sprite_spike + SPRITE_Y, Y , CheckSpike4, SpikeHit
+CheckSpike4:
+    LDY #12
+    LDA #8
+    STA current_spike
+    CheckForPlayerCollision sprite_spike + SPRITE_X, Y , sprite_spike + SPRITE_Y, Y , CheckSpike5, SpikeHit
+CheckSpike5:
+    LDY #16
+    LDA #4
+    STA current_spike
+    CheckForPlayerCollision sprite_spike + SPRITE_X, Y , sprite_spike + SPRITE_Y, Y , CheckSpike6, SpikeHit
+CheckSpike6:
+    LDY #20
+    LDA #2
+    STA current_spike
+    CheckForPlayerCollision sprite_spike + SPRITE_X, Y , sprite_spike + SPRITE_Y, Y , CheckSpike7, SpikeHit
+CheckSpike7:
+    LDY #24
+    LDA #6
+    STA current_spike
+    CheckForPlayerCollision sprite_spike + SPRITE_X, Y , sprite_spike + SPRITE_Y, Y , CheckSpike8, SpikeHit
+CheckSpike8:
+    LDY #28
+    LDA #8
+    STA current_spike
+    CheckForPlayerCollision sprite_spike + SPRITE_X, Y , sprite_spike + SPRITE_Y, Y , CheckSpike9, SpikeHit
+CheckSpike9:
+    LDY #32
+    LDA #6
+    STA current_spike
+    CheckForPlayerCollision sprite_spike + SPRITE_X, Y , sprite_spike + SPRITE_Y, Y , CheckSpike10, SpikeHit
+CheckSpike10:
+    LDY #36
+    LDA #2
+    STA current_spike
+    CheckForPlayerCollision sprite_spike + SPRITE_X, Y , sprite_spike + SPRITE_Y, Y , NoCollisionWithSpike, SpikeHit
+
+NoCollisionWithSpike:
+    JMP CheckBandages
 
 ; Handle collision
 SpikeHit:
-    LDA #2
-    STA sprite_spike + SPRITE_TILE  ; Make spikes bloody
-    LDA #0                          ; Stop player run speed
-    STA player_right_speed
-    STA player_right_speed + 1
-    STA player_left_speed
-    STA player_left_speed + 1
-    STA player_vertical_speed       ; Stop player fall
-    ; Move player back to start
-    LDA #PLAYER_START_POSITION_Y    ; Y position
-    STA sprite_player + SPRITE_Y
-    LDA #PLAYER_START_POSITION_X    ; X position
-    STA sprite_player + SPRITE_X
-    
-	
-NoCollisionWithSpike:
-
+    LDA current_spike
+    STA sprite_spike + SPRITE_TILE, Y  ; Make spikes bloody
+    ResetPlayer
 
 CheckBandages:
     LDX #0
     CheckForPlayerCollision sprite_bandage + SPRITE_X, sprite_bandage + SPRITE_Y, CheckBandage1, BandageHit
 CheckBandage1:
-    INX
-    INX
-    INX
-    INX    
+    LDX #4  
     CheckForPlayerCollision sprite_bandage + SPRITE_X + 4, sprite_bandage + SPRITE_Y + 4, CheckBandage2, BandageHit
 CheckBandage2:   
-    INX 
-    INX
-    INX
-    INX
+    LDX #8
     CheckForPlayerCollision sprite_bandage + SPRITE_X + 8, sprite_bandage + SPRITE_Y + 8, CheckBandage3, BandageHit
 CheckBandage3:
-    INX 
-    INX
-    INX
-    INX    
+    LDX #12 
     CheckForPlayerCollision sprite_bandage + SPRITE_X + 12, sprite_bandage + SPRITE_Y + 12, CheckBandage4, BandageHit
 CheckBandage4:
-    INX 
-    INX
-    INX
-    INX    
+    LDX #16     
     CheckForPlayerCollision sprite_bandage + SPRITE_X + 16, sprite_bandage + SPRITE_Y + 16, CheckBandage5, BandageHit
 CheckBandage5:
-    INX 
-    INX
-    INX
-    INX    
+    LDX #20    
     CheckForPlayerCollision sprite_bandage + SPRITE_X + 20, sprite_bandage + SPRITE_Y + 20, NoCollisionWithBandage, BandageHit
 
 BandageHit:
     ; Delete bandage + add to score?
-    LDA sprite_bandage + SPRITE_X, X
-    ADC #3
+    LDA #0
     STA sprite_bandage + SPRITE_X, X
+    STA sprite_bandage + SPRITE_Y, X
     LDA score_1     ; Increment score units
-    ADC #1
+    ;ADC #1
     STA score_1
     CMP #10         ; See if score units is greater than 10
     BCC ShowScore
