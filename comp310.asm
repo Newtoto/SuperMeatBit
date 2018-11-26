@@ -58,14 +58,18 @@ running_sprite_number   .rs 1 ; Stores point of run animation
 tickCounter             .rs 1
 timer_seconds_units     .rs 1
 timer_seconds_tens      .rs 1
+timer_minutes_units     .rs 1
+game_complete           .rs 1
 
 
     .rsset $0200
 sprite_player               .rs 4
 sprite_spike                .rs 40
 sprite_bandage              .rs 24
-sprite_timer_tens           .rs 4
-sprite_timer_units          .rs 4
+sprite_seconds_units        .rs 4
+sprite_seconds_tens         .rs 4
+sprite_minutes_units        .rs 4
+sprite_colon                .rs 4
 
     .rsset $0000
 SPRITE_Y           .rs 1
@@ -98,6 +102,10 @@ BANDAGE_4_START_X   = 148
 
 BANDAGE_5_START_Y   = 211
 BANDAGE_5_START_X   = 20
+
+; Timer location
+TIMER_START_LOCATION_Y  = 4
+TIMER_START_LOCATION_X  = 4
 
     .bank 0
     .org $C000
@@ -227,8 +235,6 @@ InitSpikes:
     STA sprite_spike + SPRITE_Y, X
     LDA #5      ; Tile number
     STA sprite_spike + SPRITE_TILE, X
-    LDA #2      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB, X
     LDA #232     ; X position
     STA sprite_spike + SPRITE_X, X
 
@@ -238,8 +244,6 @@ InitSpikes:
     STA sprite_spike + SPRITE_Y, X
     LDA #5      ; Tile number
     STA sprite_spike + SPRITE_TILE, X
-    LDA #2      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB, X
     LDA #88     ; X position
     STA sprite_spike + SPRITE_X, X
 
@@ -249,8 +253,6 @@ InitSpikes:
     STA sprite_spike + SPRITE_Y, X
     LDA #5      ; Tile number
     STA sprite_spike + SPRITE_TILE, X
-    LDA #2      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB, X
     LDA #152     ; X position
     STA sprite_spike + SPRITE_X, X
 
@@ -260,8 +262,6 @@ InitSpikes:
     STA sprite_spike + SPRITE_Y, X
     LDA #7      ; Tile number
     STA sprite_spike + SPRITE_TILE, X
-    LDA #2      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB, X
     LDA #176     ; X position
     STA sprite_spike + SPRITE_X, X
 
@@ -271,8 +271,6 @@ InitSpikes:
     STA sprite_spike + SPRITE_Y, X
     LDA #3      ; Tile number
     STA sprite_spike + SPRITE_TILE, X
-    LDA #2      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB, X
     LDA #164     ; X position
     STA sprite_spike + SPRITE_X, X
 
@@ -282,8 +280,6 @@ InitSpikes:
     STA sprite_spike + SPRITE_Y, X
     LDA #1      ; Tile number
     STA sprite_spike + SPRITE_TILE, X
-    LDA #2      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB, X
     LDA #164     ; X position
     STA sprite_spike + SPRITE_X, X
 
@@ -293,8 +289,6 @@ InitSpikes:
     STA sprite_spike + SPRITE_Y, X
     LDA #5      ; Tile number
     STA sprite_spike + SPRITE_TILE, X
-    LDA #2      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB, X
     LDA #72     ; X position
     STA sprite_spike + SPRITE_X, X
 
@@ -304,8 +298,6 @@ InitSpikes:
     STA sprite_spike + SPRITE_Y, X
     LDA #7      ; Tile number
     STA sprite_spike + SPRITE_TILE, X
-    LDA #2      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB, X
     LDA #16     ; X position
     STA sprite_spike + SPRITE_X, X
 
@@ -315,8 +307,6 @@ InitSpikes:
     STA sprite_spike + SPRITE_Y, X
     LDA #5      ; Tile number
     STA sprite_spike + SPRITE_TILE, X
-    LDA #2      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB, X
     LDA #72     ; X position
     STA sprite_spike + SPRITE_X, X
 
@@ -326,21 +316,29 @@ InitSpikes:
     STA sprite_spike + SPRITE_Y, X
     LDA #1      ; Tile number
     STA sprite_spike + SPRITE_TILE, X
-    LDA #2      ; Attributes
-    STA sprite_spike + SPRITE_ATTRIB, X
     LDA #160     ; X position
     STA sprite_spike + SPRITE_X, X
 
+    CLC
+    LDX #0
+    LDA #2
+SpikeAttribLoop:
+    STA sprite_spike + SPRITE_ATTRIB, X
+    CPX #36         ; Check if it has reached the end of spikes
+    BCS InitCollectables   ; Stop spike loop
+    INX
+    INX
+    INX
+    INX
+    JMP SpikeAttribLoop
+
 ; Write sprite data for collectable bandages, starting from top down from left to right
 InitCollectables:
+    ; Set bandage locations
     ; BANDAGE 1
     LDX #0
     LDA #BANDAGE_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
-    LDA #0      ; Tile number
-    STA sprite_bandage + SPRITE_TILE, X
-    LDA #1      ; Attributes
-    STA sprite_bandage + SPRITE_ATTRIB, X
     LDA #BANDAGE_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
     
@@ -348,10 +346,6 @@ InitCollectables:
     LDX #4
     LDA #BANDAGE_1_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
-    LDA #0      ; Tile number
-    STA sprite_bandage + SPRITE_TILE, X
-    LDA #1      ; Attributes
-    STA sprite_bandage + SPRITE_ATTRIB, X
     LDA #BANDAGE_1_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
     
@@ -359,10 +353,6 @@ InitCollectables:
     LDX #8
     LDA #BANDAGE_2_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
-    LDA #0      ; Tile number
-    STA sprite_bandage + SPRITE_TILE, X
-    LDA #1      ; Attributes
-    STA sprite_bandage + SPRITE_ATTRIB, X
     LDA #BANDAGE_2_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
     
@@ -370,10 +360,6 @@ InitCollectables:
     LDX #12
     LDA #BANDAGE_3_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
-    LDA #0      ; Tile number
-    STA sprite_bandage + SPRITE_TILE, X
-    LDA #1      ; Attributes
-    STA sprite_bandage + SPRITE_ATTRIB, X
     LDA #BANDAGE_3_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
     
@@ -381,10 +367,6 @@ InitCollectables:
     LDX #16
     LDA #BANDAGE_4_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
-    LDA #0      ; Tile number
-    STA sprite_bandage + SPRITE_TILE, X
-    LDA #1      ; Attributes
-    STA sprite_bandage + SPRITE_ATTRIB, X
     LDA #BANDAGE_4_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
     
@@ -392,35 +374,60 @@ InitCollectables:
     LDX #20
     LDA #BANDAGE_5_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
-    LDA #0      ; Tile number
-    STA sprite_bandage + SPRITE_TILE, X
-    LDA #1      ; Attributes
-    STA sprite_bandage + SPRITE_ATTRIB, X
     LDA #BANDAGE_5_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
+
+    ; Set bandage tile and attributes
+    CLC
+    LDX #0
+BandageTileAttribLoop:
+    LDA #0
+    STA sprite_bandage + SPRITE_TILE, X
+    LDA #1
+    STA sprite_bandage + SPRITE_ATTRIB, X
+    CPX #20        ; Check if it has reached the end of bandages
+    BCS InitTimer   ; Stop bandage loop
+    INX
+    INX
+    INX
+    INX
+    JMP BandageTileAttribLoop
 
 InitTimer:
     LDA #$0
     STA timer_seconds_units    ; Set timer to 0
     STA timer_seconds_tens
-
-    LDA #8      ; Y position
-    STA sprite_timer_tens + SPRITE_Y
-    LDA #48      ; Tile number
-    STA sprite_timer_tens + SPRITE_TILE
-    LDA #0      ; Attributes
-    STA sprite_timer_tens + SPRITE_ATTRIB
-    LDA #16    ; X position
-    STA sprite_timer_tens + SPRITE_X
-
-    LDA #8      ; Y position
-    STA sprite_timer_units + SPRITE_Y
-    LDA #48      ; Tile number
-    STA sprite_timer_units + SPRITE_TILE
-    LDA #0      ; Attributes
-    STA sprite_timer_units + SPRITE_ATTRIB
-    LDA #24    ; X position
-    STA sprite_timer_units + SPRITE_X
+    STA timer_minutes_units
+    
+    ; Tile number
+    LDA #48
+    STA sprite_minutes_units + SPRITE_TILE
+    STA sprite_seconds_tens + SPRITE_TILE
+    STA sprite_seconds_units + SPRITE_TILE
+    LDA #$3a
+    STA sprite_colon + SPRITE_TILE
+    ; Y Location
+    LDA #TIMER_START_LOCATION_Y
+    STA sprite_minutes_units + SPRITE_Y
+    STA sprite_colon + SPRITE_Y
+    STA sprite_seconds_tens + SPRITE_Y
+    STA sprite_seconds_units + SPRITE_Y
+    ; X Location
+    LDA #TIMER_START_LOCATION_X
+    STA sprite_minutes_units + SPRITE_X
+    ADC #6
+    STA sprite_colon + SPRITE_X
+    ADC #6
+    STA sprite_seconds_tens + SPRITE_X
+    ADC #8
+    STA sprite_seconds_units + SPRITE_X
+    ; Attribute
+    LDA #0
+    STA sprite_minutes_units + SPRITE_ATTRIB
+    STA sprite_colon + SPRITE_ATTRIB
+    STA sprite_seconds_tens + SPRITE_ATTRIB
+    STA sprite_seconds_units + SPRITE_ATTRIB
+    
 
 ; ---------------------------------------------------------------------------
 
@@ -524,7 +531,6 @@ CalculateNetSpeed .macro ; parameters: maxSpeed, speed_smaller, speed_larger, ac
     LDA #0
     STA \2      ; Zero smaller speed
     .endm
-
     
 ChangeSpriteCheck .macro ; parameters: check_value, dont_change_label, tile_if_changed, tile_to_change, end_jump_function
 
@@ -537,9 +543,13 @@ ChangeSpriteCheck .macro ; parameters: check_value, dont_change_label, tile_if_c
 
 ; Moves everything back to the start and resets timer, keeping blood on spikes
 ResetPlayer .macro
+    ; Reset timer and tick counter
     LDA #0
-    STA timer_seconds_units                     ; Reset timer units
-    STA timer_seconds_tens                    ; Reset timer tens
+    STA timer_seconds_units              
+    STA timer_seconds_tens                    
+    STA timer_minutes_units
+    STA tickCounter
+    STA game_complete               ; Reset game
     ; Reset player momentum
     STA player_right_speed          ; Stop player run speed
     STA player_right_speed + 1
@@ -552,10 +562,25 @@ ResetPlayer .macro
     STA sprite_player + SPRITE_Y
     LDA #PLAYER_START_POSITION_X    ; X position
     STA sprite_player + SPRITE_X
-    ; Reset timer
+    ; Reset timer sprites
     LDA #48
-    STA sprite_timer_units + SPRITE_TILE
-    STA sprite_timer_tens + SPRITE_TILE
+    STA sprite_minutes_units + SPRITE_TILE
+    STA sprite_seconds_tens + SPRITE_TILE
+    STA sprite_seconds_units + SPRITE_TILE
+    LDA #TIMER_START_LOCATION_Y
+    STA sprite_minutes_units + SPRITE_Y
+    STA sprite_colon + SPRITE_Y
+    STA sprite_seconds_tens + SPRITE_Y
+    STA sprite_seconds_units + SPRITE_Y
+    LDA #TIMER_START_LOCATION_X
+    STA sprite_minutes_units + SPRITE_X
+    ADC #6
+    STA sprite_colon + SPRITE_X
+    ADC #6
+    STA sprite_seconds_tens + SPRITE_X
+    ADC #8
+    STA sprite_seconds_units + SPRITE_X
+
     ResetBandages
     .endm
 
@@ -684,6 +709,7 @@ PlayerOnWall .macro ; Parameters: WallJump, SnapToLocation
 
 ; NMI is called on every frame
 NMI:
+    
     ; Initialise controller 1
     LDA #1
     STA JOYPAD1
@@ -931,10 +957,13 @@ Reset:
     JMP NMI
 
 ReadB_Done:
-    LDA #0
-    STA OAMADDR
-    LDA #$02
-    STA OAMDMA
+
+    ; Game complete check
+    LDA game_complete
+    BEQ ApplyMovement        ; Do movement if not complete
+    JMP GameLoopDone
+
+ApplyMovement:
 
     LDX #0
 
@@ -1050,7 +1079,51 @@ NoCollisionWithBandage:
     JMP VerticalMomentum
 
 WinState:
-    ResetBandages
+    ; Move time sprites down
+    LDA #132
+    STA sprite_seconds_units + SPRITE_Y
+    STA sprite_seconds_tens + SPRITE_Y
+    STA sprite_minutes_units + SPRITE_Y
+    STA sprite_colon + SPRITE_Y
+    ; Move time sprites across
+    CLC
+    LDA sprite_minutes_units + SPRITE_X
+    ADC #28
+    STA sprite_minutes_units + SPRITE_X
+    ADC #8
+    STA sprite_colon + SPRITE_X
+    ADC #8
+    STA sprite_seconds_tens + SPRITE_X
+    ADC #8
+    STA sprite_seconds_units + SPRITE_X
+    
+    ; Move bandage sprites to repurpose for "Your time" text
+    LDA #116
+    STA sprite_bandage + SPRITE_Y
+    STA sprite_bandage + SPRITE_Y + 4
+    STA sprite_bandage + SPRITE_Y + 8
+    STA sprite_bandage + SPRITE_Y + 12
+    CLC
+    LDA #32
+    STA sprite_bandage + SPRITE_X
+    ADC #8
+    STA sprite_bandage + SPRITE_X + 4
+    ADC #8
+    STA sprite_bandage + SPRITE_X + 8
+    ADC #8
+    STA sprite_bandage + SPRITE_X + 12
+    ; Change bandage sprite to your time text
+    LDA #$40
+    STA sprite_bandage + SPRITE_TILE
+    LDA #$41
+    STA sprite_bandage + SPRITE_TILE + 4
+    LDA #$42
+    STA sprite_bandage + SPRITE_TILE + 8
+    LDA #$43
+    STA sprite_bandage + SPRITE_TILE + 12
+
+    LDA #1
+    STA game_complete   ; Set game complete to true
 
 VerticalMomentum:
     LDA touching_ground
@@ -1148,10 +1221,11 @@ Idle:
 EndSpriteSwitching:
 
 CountUpTimer:
+    ; Count up tickCounter
     LDA tickCounter
     ADC #1
     STA tickCounter
-    CMP #60
+    CMP #60                 ; If ticks reach 60, reset counter and add increment second units
     BCC DontIncrementTimer
     CLC
     LDA #0
@@ -1159,7 +1233,7 @@ CountUpTimer:
     LDA timer_seconds_units
     ADC #1
     STA timer_seconds_units
-    CMP #10
+    CMP #10                 ; If second units reach 10, reset second units and increment second tens
     BCC ShowTimer
     CLC
     LDA #0
@@ -1167,17 +1241,39 @@ CountUpTimer:
     LDA timer_seconds_tens
     ADC #1
     STA timer_seconds_tens
+    CMP #6                  ; If second tens reach 6, reset second tens and increment minute units
+    BCC ShowTimer
+    LDA #0
+    STA timer_seconds_tens
+    CLC
+    LDA timer_minutes_units
+    ADC #1
+    STA timer_minutes_units
+    CMP #10                 ; If minutes units reach 10, reset player
+    BCC ShowTimer
+    JMP TimeUp
 ShowTimer:
     LDA timer_seconds_units
     ADC #48
-    STA sprite_timer_units + SPRITE_TILE
-    CLC
+    STA sprite_seconds_units + SPRITE_TILE
     LDA timer_seconds_tens
     ADC #48
-    STA sprite_timer_tens + SPRITE_TILE
+    STA sprite_seconds_tens + SPRITE_TILE
+    LDA timer_minutes_units
+    ADC #48
+    STA sprite_minutes_units + SPRITE_TILE
 
 DontIncrementTimer:
+    JMP GameLoopDone
 
+TimeUp:
+    ResetPlayer
+
+GameLoopDone:
+    LDA #0
+    STA OAMADDR
+    LDA #$02
+    STA OAMDMA
 
     RTI         ; Return from interrupt
 
