@@ -567,10 +567,12 @@ ResetPlayer .macro
     STA sprite_player + SPRITE_X
     ; Reset timer sprites
     CLC
+    ; Reset sprites to 0
     LDA #48
     STA sprite_minutes_units + SPRITE_TILE
     STA sprite_seconds_tens + SPRITE_TILE
     STA sprite_seconds_units + SPRITE_TILE
+    ; Reset Location of timer
     LDA #TIMER_START_LOCATION_Y
     STA sprite_minutes_units + SPRITE_Y
     STA sprite_colon + SPRITE_Y
@@ -588,7 +590,7 @@ ResetPlayer .macro
     ResetBandages
     .endm
 
-; Moves bandages to start position
+; Reset bandage position, tile and attributes
 ResetBandages .macro
     LDA #0
     STA bandages_collected  ; Reset number of bandages collected
@@ -658,6 +660,7 @@ ResetBandages .macro
     STA sprite_bandage + SPRITE_ATTRIB, X
     LDA #BANDAGE_5_START_X    ; X position
     STA sprite_bandage + SPRITE_X, X
+    
     .endm
 
 ; Checks if player is touching a floor using Y position and left and right parameters
@@ -1043,7 +1046,7 @@ NoCollisionWithSpike:
 ; Handle collision
 SpikeHit:
     LDA current_spike
-    STA sprite_spike + SPRITE_TILE, Y  ; Make spikes bloody
+    STA sprite_spike + SPRITE_TILE, Y  ; Make spike bloody when hit
     ResetPlayer
 
 CheckBandages:
@@ -1074,10 +1077,9 @@ BandageHit:
     STA sprite_bandage + SPRITE_TILE, X     ; Use invisible sprite
     LDA bandages_collected
     ADC #1
-    STA bandages_collected
+    STA bandages_collected              ; Increment bandage collected number
     CMP #6
-    BCS WinState
-    JMP VerticalMomentum
+    BCS WinState                        ; End game (win) if number of collected bandages is 6
 
 NoCollisionWithBandage:
     JMP VerticalMomentum
@@ -1239,6 +1241,7 @@ Idle:
     STA sprite_player + SPRITE_TILE
 EndSpriteSwitching:
 
+; Use number of ticks to increment the timer
 CountUpTimer:
     ; Count up tick_counter
     LDA tick_counter
@@ -1285,6 +1288,7 @@ ShowTimer:
 DontIncrementTimer:
     JMP GameLoopDone
 
+; Times out if play time exceeds 9 minutes and 59 seconds
 TimeUp:
     ResetPlayer
 
@@ -1301,6 +1305,7 @@ GameLoopDone:
 
 ; ---------------------------------------------------------------------------
 
+; Background sprite layout
 nametable:
     .db $02,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$12,$03
     .db $10,$14,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$13,$15,$11
