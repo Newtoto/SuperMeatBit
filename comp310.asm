@@ -55,7 +55,8 @@ wall_jump_left          .rs 1
 bandages_collected      .rs 1
 collision_location      .rs 1 ; 
 running_sprite_number   .rs 1 ; Stores point of run animation
-tickCounter             .rs 1
+run_tick_counter        .rs 1
+tick_counter            .rs 1
 timer_seconds_units     .rs 1
 timer_seconds_tens      .rs 1
 timer_minutes_units     .rs 1
@@ -82,7 +83,7 @@ RUN_SPEED           = 4 * 256       ; Subpixels per frame
 RUN_ACC             = 8
 MAX_SPEED           = 16
 WALL_JUMP_SPEED     = 1 * 256       ; Subpixels per frame
-RUN_ANIMATION_LENGTH = 3            ; Number of frames in run animation - 1
+RUN_ANIMATION_LENGTH = 5            ; Number of frames in run animation - 1
 
 ; Bandage collectables locations
 BANDAGE_START_Y     = 19
@@ -548,7 +549,7 @@ ResetPlayer .macro
     STA timer_seconds_units              
     STA timer_seconds_tens                    
     STA timer_minutes_units
-    STA tickCounter
+    STA tick_counter
     STA game_complete               ; Reset game
     ; Reset player momentum
     STA player_right_speed          ; Stop player run speed
@@ -644,6 +645,7 @@ ResetBandages .macro
     STA sprite_bandage + SPRITE_X, X
     
     ; BANDAGE 6
+    CLC
     LDX #20
     LDA #BANDAGE_5_START_Y     ; Y position
     STA sprite_bandage + SPRITE_Y, X
@@ -1198,38 +1200,46 @@ CheckRightWall:
 RunningCheck:
     LDA is_running
     BEQ Idle
-    LDA running_sprite_number   ; Get point in run animation
-    CLC
-    CMP RUN_ANIMATION_LENGTH    ; Make sure it is smaller than animation length
+    CLC 
+    LDA run_tick_counter
+    ADC #1
+    STA run_tick_counter        ; Increment run tick counter
+    CMP #5                      ; If tick counter reaches #20 increment sprite number
     BCC UpdateRunSprite
     LDA #0
-    STA running_sprite_number       ; Reset run animation
-UpdateRunSprite:
-    ; LDA running_sprite_number
-    ; ADC #16
-    LDA #17
-    STA sprite_player + SPRITE_TILE
-    LDA running_sprite_number
+    STA run_tick_counter        ; Reset run tick counter
+    LDA running_sprite_number   ; Get point in run animation
     ADC #1
     STA running_sprite_number
+    CMP #RUN_ANIMATION_LENGTH    ; Make sure it is smaller than animation length
+    BCC UpdateRunSprite
+    LDA #0
+
+    STA running_sprite_number       ; Reset run animation
+UpdateRunSprite:
+    CLC
+    LDA running_sprite_number
+    ADC #16
+    STA sprite_player + SPRITE_TILE
     JMP EndSpriteSwitching
 Idle:
     LDA #0
+    STA run_tick_counter            ; Reset run tick counter
     STA running_sprite_number       ; Reset run animation
     LDA #16      ; Tile number
     STA sprite_player + SPRITE_TILE
 EndSpriteSwitching:
 
 CountUpTimer:
-    ; Count up tickCounter
-    LDA tickCounter
+    ; Count up tick_counter
+    LDA tick_counter
     ADC #1
-    STA tickCounter
+    STA tick_counter
     CMP #60                 ; If ticks reach 60, reset counter and add increment second units
     BCC DontIncrementTimer
     CLC
     LDA #0
-    STA tickCounter
+    STA tick_counter
     LDA timer_seconds_units
     ADC #1
     STA timer_seconds_units
