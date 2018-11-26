@@ -36,7 +36,7 @@ SPIKE_HITBOX_HEIGHT  = 8
 PLAYER__WIDTH   = 8
 PLAYER__HEIGHT  = 8
 PLAYER_START_POSITION_X = 128
-PLAYER_START_POSITION_Y = 120
+PLAYER_START_POSITION_Y = 136
 
     .rsset $0000
 joypad1_state           .rs 1
@@ -61,6 +61,7 @@ timer_seconds_units     .rs 1
 timer_seconds_tens      .rs 1
 timer_minutes_units     .rs 1
 game_complete           .rs 1
+faced_direction         .rs 1   ; 0 for left, 1 for right
 
 
     .rsset $0200
@@ -83,26 +84,26 @@ RUN_SPEED           = 4 * 256       ; Subpixels per frame
 RUN_ACC             = 8
 MAX_SPEED           = 16
 WALL_JUMP_SPEED     = 1 * 256       ; Subpixels per frame
-RUN_ANIMATION_LENGTH = 5            ; Number of frames in run animation - 1
+RUN_ANIMATION_LENGTH = 8            ; Number of frames in run animation
 
-; Bandage collectables locations
+; Bandage collectables locations starting top going left to right
 BANDAGE_START_Y     = 19
 BANDAGE_START_X     = 20
 
 BANDAGE_1_START_Y   = 19
 BANDAGE_1_START_X   = 228
 
-BANDAGE_2_START_Y   = 91
-BANDAGE_2_START_X   = 60
+BANDAGE_2_START_Y   = 87
+BANDAGE_2_START_X   = 86
 
-BANDAGE_3_START_Y   = 131
-BANDAGE_3_START_X   = 204
+BANDAGE_3_START_Y   = 123
+BANDAGE_3_START_X   = 164
 
-BANDAGE_4_START_Y   = 167
+BANDAGE_4_START_Y   = 163
 BANDAGE_4_START_X   = 148
 
-BANDAGE_5_START_Y   = 211
-BANDAGE_5_START_X   = 20
+BANDAGE_5_START_Y   = 180
+BANDAGE_5_START_X   = 72
 
 ; Timer location
 TIMER_START_LOCATION_Y  = 4
@@ -559,11 +560,13 @@ ResetPlayer .macro
     STA player_vertical_speed                ; Stop player fall
     STA player_vertical_speed + 1
     ; Move player back to start
+    CLC
     LDA #PLAYER_START_POSITION_Y    ; Y position
     STA sprite_player + SPRITE_Y
     LDA #PLAYER_START_POSITION_X    ; X position
     STA sprite_player + SPRITE_X
     ; Reset timer sprites
+    CLC
     LDA #48
     STA sprite_minutes_units + SPRITE_TILE
     STA sprite_seconds_tens + SPRITE_TILE
@@ -879,21 +882,18 @@ ReadController:
     ; React to Right button
     LDA joypad1_state
     AND #BUTTON_RIGHT
-    BEQ ReadRight_Done       ; if ((JOYPAD1 & 1) != 0) {
+    BEQ ReadRight_Done      ; if ((JOYPAD1 & 1) != 0) {
     LDA #1 
-    STA is_running           ; Set is running bool to true
+    STA is_running          ; Set is running bool to true
+    STA faced_direction     ; Set face direction to right (1)
     CalculateSpeed player_right_speed, RUN_ACC
 
 ReadRight_Done:         ; }
 
-    ; React to Down button
-    LDA joypad1_state
-    AND #BUTTON_DOWN
-    BEQ ReadDown_Done  ; if ((JOYPAD1 & 1) != 0) {
-    LDA sprite_player + SPRITE_Y
-    CLC
-    ADC #1
-    STA sprite_player + SPRITE_Y
+;     ; React to Down button
+;     LDA joypad1_state
+;     AND #BUTTON_DOWN
+;     BEQ ReadDown_Done  ; if ((JOYPAD1 & 1) != 0) {
     
 
 ReadDown_Done:         ; }
@@ -904,6 +904,8 @@ ReadDown_Done:         ; }
     BEQ ReadLeft_Done  ; if ((JOYPAD1 & 1) != 0) {
     LDA #1
     STA is_running      ; Set is running bool to true
+    LDA #0
+    STA faced_direction ; Set face direction to left (0)
     CalculateSpeed player_left_speed, RUN_ACC
 
 
@@ -1205,21 +1207,28 @@ RunningCheck:
     ADC #1
     STA run_tick_counter        ; Increment run tick counter
     CMP #5                      ; If tick counter reaches #20 increment sprite number
-    BCC UpdateRunSprite
+    BCC CheckRunDirection
     LDA #0
     STA run_tick_counter        ; Reset run tick counter
     LDA running_sprite_number   ; Get point in run animation
     ADC #1
     STA running_sprite_number
     CMP #RUN_ANIMATION_LENGTH    ; Make sure it is smaller than animation length
-    BCC UpdateRunSprite
+    BCC CheckRunDirection
     LDA #0
-
     STA running_sprite_number       ; Reset run animation
-UpdateRunSprite:
+CheckRunDirection:
     CLC
+    LDA faced_direction
+    BNE RunRight             ; Facing right
+RunLeft:                     ; Default to left
     LDA running_sprite_number
-    ADC #16
+    ADC #$23                    ; Add on location of first left run sprite
+    JMP UpdateRunSprite
+RunRight:
+    LDA running_sprite_number
+    ADC #$11                    ; Add on location of first right run sprite
+UpdateRunSprite:
     STA sprite_player + SPRITE_TILE
     JMP EndSpriteSwitching
 Idle:
