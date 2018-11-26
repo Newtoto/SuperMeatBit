@@ -1368,4 +1368,4 @@ paletteData:
 
     .bank 2
     .org $0000
-    .incbin "comp310.chr"
+    .incbin "SuperMeatBit.chr"
